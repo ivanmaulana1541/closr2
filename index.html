@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<title>closr2 — avatar radar</title>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#eef1f7;
+}
+
+header{
+background:#4a6cff;
+color:white;
+padding:12px;
+text-align:center;
+font-size:18px;
+}
+
+#map{
+height:90vh;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>📍 closr2 — avatar test</header>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+// buat map
+let map=L.map("map").setView([-6.2,106.8],15);
+
+// tile map
+L.tileLayer(
+"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+).addTo(map);
+
+// avatar icon
+let avatar=L.divIcon({
+className:"",
+html:`
+<img src="https://ivanmaulana1541.github.io/closr/avatars/avatar1.png"
+style="
+width:60px;
+height:60px;
+border-radius:50%;
+border:3px solid #ff7b00;">
+`
+});
+
+// marker avatar
+L.marker([-6.2,106.8],{icon:avatar})
+.addTo(map)
+.bindPopup("Avatar berhasil 😎");
+
+</script>
+
+</body>
+</html>
