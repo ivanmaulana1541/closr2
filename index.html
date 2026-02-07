@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr2 — avatar radar</title>
+<title>closr2 — avatar GPS</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -34,7 +34,7 @@ height:90vh;
 
 <body>
 
-<header>📍 closr2 — avatar test</header>
+<header>📍 closr2 — avatar GPS test</header>
 
 <div id="map"></div>
 
@@ -42,16 +42,21 @@ height:90vh;
 
 <script>
 
-// buat map
+//////////////////////////////////////////////////////
+// MAP INIT
+//////////////////////////////////////////////////////
+
 let map=L.map("map").setView([-6.2,106.8],15);
 
-// tile map
 L.tileLayer(
 "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
 ).addTo(map);
 
-// avatar icon
-let avatar=L.divIcon({
+//////////////////////////////////////////////////////
+// AVATAR ICON
+//////////////////////////////////////////////////////
+
+let avatarIcon=L.divIcon({
 className:"",
 html:`
 <img src="https://ivanmaulana1541.github.io/closr/avatars/avatar1.png"
@@ -63,10 +68,42 @@ border:3px solid #ff7b00;">
 `
 });
 
-// marker avatar
-L.marker([-6.2,106.8],{icon:avatar})
+//////////////////////////////////////////////////////
+// GPS TRACKING
+//////////////////////////////////////////////////////
+
+let myMarker=null;
+
+navigator.geolocation.watchPosition(pos=>{
+
+let lat=pos.coords.latitude;
+let lng=pos.coords.longitude;
+
+// focus map ke posisi kamu
+map.setView([lat,lng],16);
+
+// buat marker pertama kali
+if(!myMarker){
+
+myMarker=L.marker([lat,lng],{icon:avatarIcon})
 .addTo(map)
-.bindPopup("Avatar berhasil 😎");
+.bindPopup("Ini kamu 😎")
+.openPopup();
+
+}else{
+
+// update posisi marker
+myMarker.setLatLng([lat,lng]);
+
+}
+
+},
+err=>{
+alert("GPS tidak diizinkan atau gagal.");
+},
+{
+enableHighAccuracy:true
+});
 
 </script>
 
