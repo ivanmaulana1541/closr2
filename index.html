@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr2 — avatar GPS</title>
+<title>closr2 — CARTO avatar GPS</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -34,7 +34,7 @@ height:90vh;
 
 <body>
 
-<header>📍 closr2 — avatar GPS test</header>
+<header>📍 closr2 — CARTO avatar radar</header>
 
 <div id="map"></div>
 
@@ -43,23 +43,26 @@ height:90vh;
 <script>
 
 //////////////////////////////////////////////////////
-// MAP INIT
+// MAP INIT — CARTO STYLE
 //////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
 L.tileLayer(
-"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+{
+attribution:"© CARTO"
+}
 ).addTo(map);
 
 //////////////////////////////////////////////////////
-// AVATAR ICON
+// AVATAR ICON — LOCAL FILE
 //////////////////////////////////////////////////////
 
 let avatarIcon=L.divIcon({
 className:"",
 html:`
-<img src="https://ivanmaulana1541.github.io/closr/avatars/avatar1.png"
+<img src="avatar/avatar1.png"
 style="
 width:60px;
 height:60px;
@@ -74,12 +77,14 @@ border:3px solid #ff7b00;">
 
 let myMarker=null;
 
-navigator.geolocation.watchPosition(pos=>{
+navigator.geolocation.watchPosition(
+
+pos=>{
 
 let lat=pos.coords.latitude;
 let lng=pos.coords.longitude;
 
-// focus map ke posisi kamu
+// fokus map ke posisi kamu
 map.setView([lat,lng],16);
 
 // buat marker pertama kali
@@ -98,12 +103,16 @@ myMarker.setLatLng([lat,lng]);
 }
 
 },
+
 err=>{
 alert("GPS tidak diizinkan atau gagal.");
 },
+
 {
 enableHighAccuracy:true
-});
+}
+
+);
 
 </script>
 
