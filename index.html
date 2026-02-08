@@ -174,10 +174,19 @@ border:3px solid #ff7b00;">
 //////////////////////////////////////////////////////
 
 function ensureUserProfile(uid){
+
+onValue(ref(db,"users/"+uid+"/avatar"),snap=>{
+
+if(!snap.exists()){
+showAvatarPicker(uid);
+}
+
+},{onlyOnce:true});
+
 update(ref(db,"users/"+uid),{
-username:"user_"+uid.slice(0,4),
-avatar:"avatar/avatar1.png"
+username:"user_"+uid.slice(0,4)
 });
+
 }
 
 function showAvatarPicker(uid){
