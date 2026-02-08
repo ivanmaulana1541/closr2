@@ -396,6 +396,82 @@ timelineBox.style.display==="none"
 ? "block"
 : "none";
 
+}
+
+////////////////////////////////////////////////////////
+// LOAD TIMELINE
+////////////////////////////////////////////////////////
+
+function loadTimeline(){
+
+timelineBox.innerHTML="<b>Timeline</b><br><br>";
+
+let feed=[];
+
+function addMoments(uid){
+
+onValue(
+ref(db,"moments/"+uid),
+snap=>{
+
+snap.forEach(m=>{
+
+let d=m.val();
+
+feed.push({
+time:d.time||0,
+text:d.text||"",
+user:uid
+});
+
+renderTimeline(feed);
+
+});
+
+});
+
+}
+
+////////////////////////////////////////////////
+// ambil teman
+////////////////////////////////////////////////
+
+onValue(
+ref(db,"friends/"+myUID),
+snap=>{
+
+feed=[];
+
+// moments sendiri
+addMoments(myUID);
+
+// moments teman
+snap.forEach(f=>{
+addMoments(f.key);
+});
+
+});
+
+}
+
+function renderTimeline(feed){
+
+feed.sort((a,b)=>b.time-a.time);
+
+let html="<b>Timeline</b><br><br>";
+
+feed.forEach(f=>{
+
+html+=`
+📍 ${f.text}<br>
+<small>${new Date(f.time).toLocaleString()}</small>
+<hr>
+`;
+
+});
+
+timelineBox.innerHTML=html;
+
 }  
   
 ////////////////////////////////////////////////////////
