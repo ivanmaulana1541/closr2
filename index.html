@@ -286,7 +286,8 @@ myLng=pos.coords.longitude;
 
 update(ref(db,"users/"+uid),{
 lat:myLat,
-lng:myLng
+lng:myLng,
+status:"online"
 });
 
 map.setView([myLat,myLng],16);
