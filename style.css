@@ -1,53 +1,72 @@
 body{
 margin:0;
-font-family:Arial;
-background:#eef1f7;
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+background:#F8F9FB;
+color:#2C2C2C;
 }
 
 header{
-background:#4a6cff;
+background:#FF5A5F;
 color:white;
-padding:12px;
+padding:14px;
 text-align:center;
+font-weight:600;
+letter-spacing:.5px;
+box-shadow:0 2px 6px rgba(0,0,0,.15);
 }
 
-#map{height:60vh;}
+#map{
+height:60vh;
+filter:saturate(.9) brightness(1.05);
+}
 
 .card{
 background:white;
-padding:10px;
-margin:10px;
-border-radius:8px;
+padding:12px;
+margin:12px;
+border-radius:16px;
+box-shadow:0 2px 6px rgba(0,0,0,.05);
 }
 
 button{
-padding:8px;
-margin:4px;
-background:#4a6cff;
+padding:10px 14px;
+margin:6px;
+background:#FF5A5F;
 color:white;
 border:none;
-border-radius:6px;
+border-radius:22px;
 cursor:pointer;
+font-weight:500;
+transition:.2s;
+}
+
+button:hover{
+transform:scale(1.05);
+background:#ff4448;
 }
 
 input,textarea{
-padding:8px;
-margin:4px;
+padding:10px;
+margin:6px;
 width:95%;
+border-radius:10px;
+border:1px solid #ddd;
+font-family:inherit;
 }
 
 .popup{
 position:absolute;
-top:80px;
+top:90px;
 left:50%;
 transform:translateX(-50%);
 background:white;
-padding:12px;
-border-radius:10px;
-box-shadow:0 4px 10px rgba(0,0,0,.2);
+padding:14px;
+border-radius:18px;
+box-shadow:0 6px 16px rgba(0,0,0,.2);
 display:none;
 z-index:999;
-max-width:320px;
+max-width:340px;
+animation:fadeIn .25s ease;
 }
 
 .timeline{
@@ -55,17 +74,45 @@ position:absolute;
 bottom:0;
 left:0;
 right:0;
-max-height:40%;
+max-height:42%;
 background:white;
 overflow:auto;
-padding:10px;
-border-top:2px solid #ddd;
+padding:12px;
+border-top-left-radius:20px;
+border-top-right-radius:20px;
+box-shadow:0 -4px 12px rgba(0,0,0,.08);
 display:none;
 z-index:998;
+animation:slideUp .3s ease;
 }
 
 img.preview{
 width:100%;
-border-radius:8px;
-margin-top:5px;
+border-radius:14px;
+margin-top:8px;
+}
+
+.story-card{
+background:white;
+border-radius:16px;
+margin:12px 0;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,.05);
+animation:fadeIn .3s ease;
+}
+
+@keyframes fadeIn{
+from{opacity:0;transform:translateY(6px);}
+to{opacity:1;transform:translateY(0);}
+}
+
+@keyframes slideUp{
+from{transform:translateY(20px);opacity:0;}
+to{transform:translateY(0);opacity:1;}
+}
+
+@keyframes pulse{
+0%{transform:scale(1);}
+50%{transform:scale(1.15);}
+100%{transform:scale(1);}
 }
