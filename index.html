@@ -367,6 +367,35 @@ profileBox.innerHTML=html;
 
 },{onlyOnce:true});
 
+}
+
+////////////////////////////////////////////////////////
+// TIMELINE UI
+////////////////////////////////////////////////////////
+
+const timelineBox=document.createElement("div");
+
+timelineBox.style.position="absolute";
+timelineBox.style.bottom="0";
+timelineBox.style.left="0";
+timelineBox.style.right="0";
+timelineBox.style.maxHeight="40%";
+timelineBox.style.background="white";
+timelineBox.style.borderTop="2px solid #ddd";
+timelineBox.style.overflowY="auto";
+timelineBox.style.padding="10px";
+timelineBox.style.zIndex=998;
+timelineBox.style.display="none";
+
+document.body.appendChild(timelineBox);
+
+function toggleTimeline(){
+
+timelineBox.style.display=
+timelineBox.style.display==="none"
+? "block"
+: "none";
+
 }  
   
 ////////////////////////////////////////////////////////
