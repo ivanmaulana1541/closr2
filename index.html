@@ -233,11 +233,14 @@ box.style.zIndex=999;
 box.innerHTML=`
 <b>${name}</b><br><br>
 <button id="dmBtn">DM</button>
+<button id="profileBtn">Profile</button>
 <button id="friendBtn">Add Friend</button>
 <button id="closeBtn">Close</button>
 `;
 
 document.body.appendChild(box);
+
+profileBtn.onclick=()=>openProfile(uid,name);  
 
 friendBtn.onclick=()=>sendFriendRequest(uid);
 
