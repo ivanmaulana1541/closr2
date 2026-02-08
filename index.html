@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr2 — social radar</title>
+<title>closr2 — social radar + DM</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -24,7 +24,9 @@ text-align:center;
 font-size:18px;
 }
 
-#map{ height:70vh; }
+#map{
+height:60vh;
+}
 
 .card{
 background:white;
@@ -34,8 +36,8 @@ border-radius:8px;
 }
 
 button{
-padding:6px;
-margin:3px;
+padding:8px;
+margin:4px;
 background:#4a6cff;
 color:white;
 border:none;
@@ -57,11 +59,15 @@ border-radius:50%;
 border:3px solid transparent;
 }
 
-.pick:hover{ border-color:#4a6cff; }
+.pick:hover{
+border-color:#4a6cff;
+}
 
-#avatarPicker,#usernameBox{
+#avatarPicker,
+#usernameBox,
+#chatBox{
 position:absolute;
-top:70px;
+top:80px;
 left:50%;
 transform:translateX(-50%);
 background:white;
@@ -72,22 +78,43 @@ display:none;
 z-index:999;
 }
 
+#chatMessages{
+height:200px;
+overflow:auto;
+border:1px solid #ddd;
+padding:6px;
+margin-bottom:6px;
+}
+
+.msgMe{
+text-align:right;
+color:#4a6cff;
+}
+
+.msgOther{
+text-align:left;
+color:#333;
+}
+
 </style>
+
 </head>
 
 <body>
 
-<header>📍 closr2 — social radar</header>
+<header>📍 closr2 — social radar + DM</header>
 
 <div id="loginBox" class="card"></div>
 <div id="map"></div>
 
+<!-- USERNAME -->
 <div id="usernameBox">
-<b>Username:</b><br>
-<input id="uname"><br>
+<b>Masukkan username:</b><br><br>
+<input id="uname">
 <button id="saveU">Save</button>
 </div>
 
+<!-- AVATAR -->
 <div id="avatarPicker">
 <b>Pilih avatar:</b><br><br>
 <img src="avatar/avatar1.png" class="pick">
@@ -96,13 +123,22 @@ z-index:999;
 <img src="avatar/avatar4.png" class="pick">
 </div>
 
+<!-- CHAT -->
+<div id="chatBox">
+<b id="chatTitle">Chat</b>
+<div id="chatMessages"></div>
+<input id="chatInput" placeholder="ketik pesan">
+<button id="sendBtn">Send</button>
+<button onclick="chatBox.style.display='none'">Close</button>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
 
-////////////////////////////////////////////////////////
+//////////////////////////////
 // FIREBASE
-////////////////////////////////////////////////////////
+//////////////////////////////
 
 import { initializeApp }
 from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -134,9 +170,9 @@ const appFirebase=initializeApp(firebaseConfig);
 const auth=getAuth(appFirebase);
 const db=getDatabase(appFirebase);
 
-////////////////////////////////////////////////////////
+//////////////////////////////
 // MAP
-////////////////////////////////////////////////////////
+//////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
@@ -147,9 +183,9 @@ L.tileLayer(
 let markers={};
 let myUID=null;
 
-////////////////////////////////////////////////////////
-// LOGIN
-////////////////////////////////////////////////////////
+//////////////////////////////
+// LOGIN UI
+//////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
 
@@ -163,55 +199,16 @@ loginBox.innerHTML=`
 <button id="log">Login</button>
 `;
 
-reg.onclick=()=>createUserWithEmailAndPassword(auth,email.value,pass.value);
-log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value);
+reg.onclick=()=>createUserWithEmailAndPassword(auth,email.value,pass.value)
+.catch(e=>alert(e.message));
 
+log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value)
+.catch(e=>alert(e.message));
 }
 
-////////////////////////////////////////////////////////
-// USERNAME
-////////////////////////////////////////////////////////
-
-function askUsername(uid){
-
-usernameBox.style.display="block";
-
-saveU.onclick=()=>{
-
-update(ref(db,"users/"+uid),{
-username:uname.value
-});
-
-usernameBox.style.display="none";
-
-};
-
-}
-
-////////////////////////////////////////////////////////
-// AVATAR
-////////////////////////////////////////////////////////
-
-function showAvatarPicker(uid){
-
-avatarPicker.style.display="block";
-
-document.querySelectorAll(".pick").forEach(img=>{
-
-img.onclick=()=>{
-update(ref(db,"users/"+uid),{
-avatar:img.getAttribute("src")
-});
-avatarPicker.style.display="none";
-};
-
-});
-
-}
-
-////////////////////////////////////////////////////////
-// PROFILE INIT
-////////////////////////////////////////////////////////
+//////////////////////////////
+// USERNAME + AVATAR
+//////////////////////////////
 
 function ensureProfile(uid){
 
@@ -219,16 +216,32 @@ onValue(ref(db,"users/"+uid),snap=>{
 
 let d=snap.val()||{};
 
-if(!d.username) askUsername(uid);
-if(!d.avatar) showAvatarPicker(uid);
-
-},{onlyOnce:true});
-
+if(!d.username){
+usernameBox.style.display="block";
+saveU.onclick=()=>{
+update(ref(db,"users/"+uid),{username:uname.value});
+usernameBox.style.display="none";
+};
 }
 
-////////////////////////////////////////////////////////
+if(!d.avatar){
+avatarPicker.style.display="block";
+document.querySelectorAll(".pick").forEach(img=>{
+img.onclick=()=>{
+update(ref(db,"users/"+uid),{
+avatar:img.getAttribute("src")
+});
+avatarPicker.style.display="none";
+};
+});
+}
+
+},{onlyOnce:true});
+}
+
+//////////////////////////////
 // GPS
-////////////////////////////////////////////////////////
+//////////////////////////////
 
 function startGPS(uid){
 
@@ -243,27 +256,62 @@ status:"online"
 map.setView([pos.coords.latitude,pos.coords.longitude],16);
 
 });
+}
+
+//////////////////////////////
+// DM SYSTEM
+//////////////////////////////
+
+let activeRoom=null;
+
+function openChat(targetUID,targetName){
+
+chatBox.style.display="block";
+chatTitle.innerText="Chat: "+targetName;
+
+let room=[myUID,targetUID].sort().join("_");
+activeRoom=room;
+
+onValue(ref(db,"chats/"+room+"/messages"),snap=>{
+
+chatMessages.innerHTML="";
+
+snap.forEach(m=>{
+
+let msg=m.val();
+let div=document.createElement("div");
+
+div.className=msg.sender===myUID
+?"msgMe":"msgOther";
+
+div.innerText=msg.text;
+
+chatMessages.appendChild(div);
+
+});
+
+chatMessages.scrollTop=chatMessages.scrollHeight;
+
+});
 
 }
 
-////////////////////////////////////////////////////////
-// FRIEND REQUEST
-////////////////////////////////////////////////////////
+sendBtn.onclick=()=>{
 
-function addFriend(targetUID){
+if(!activeRoom) return;
 
-push(ref(db,"friendRequests/"+targetUID),{
-from:myUID,
+push(ref(db,"chats/"+activeRoom+"/messages"),{
+sender:myUID,
+text:chatInput.value,
 time:Date.now()
 });
 
-alert("Friend request sent!");
+chatInput.value="";
+};
 
-}
-
-////////////////////////////////////////////////////////
+//////////////////////////////
 // RADAR
-////////////////////////////////////////////////////////
+//////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
 
@@ -273,8 +321,9 @@ markers={};
 snap.forEach(c=>{
 
 let u=c.val();
-let uid=c.key;
 if(!u.lat) return;
+
+let dot=u.status==="online"?"🟢":"⚪";
 
 let icon=L.divIcon({
 className:"",
@@ -282,35 +331,29 @@ html:`
 <img src="${u.avatar||'avatar/avatar1.png'}"
 style="width:50px;height:50px;border-radius:50%;">
 <br>${u.username||"user"}
+<br>${dot}
 `
 });
 
-let popup=`
-<b>${u.username}</b><br>
-<button onclick="dm('${uid}')">💬 DM</button>
-<button onclick="profile('${uid}')">👤 Profile</button>
-<button onclick="addFriend('${uid}')">➕ Friend</button>
-`;
+let marker=L.marker([u.lat,u.lng],{icon}).addTo(map);
 
-markers[uid]=L.marker([u.lat,u.lng],{icon})
-.addTo(map)
-.bindPopup(popup);
+marker.on("click",()=>{
+
+if(c.key===myUID) return;
+
+openChat(c.key,u.username);
+
+});
+
+markers[c.key]=marker;
 
 });
 
 });
 
-////////////////////////////////////////////////////////
-// GLOBAL ACTIONS
-////////////////////////////////////////////////////////
-
-window.dm=(uid)=>alert("Open DM with "+uid);
-window.profile=(uid)=>alert("Open profile "+uid);
-window.addFriend=addFriend;
-
-////////////////////////////////////////////////////////
+//////////////////////////////
 // AUTH
-////////////////////////////////////////////////////////
+//////////////////////////////
 
 onAuthStateChanged(auth,user=>{
 
@@ -319,22 +362,25 @@ if(user){
 myUID=user.uid;
 
 loginBox.innerHTML=`
-Logged in<br>
-<button onclick="logout()">Logout</button>
+Logged in: ${user.email}
+<button id="logout">Logout</button>
 `;
 
-window.logout=()=>{
-update(ref(db,"users/"+myUID),{status:"offline"});
+logout.onclick=()=>{
+update(ref(db,"users/"+user.uid),{status:"offline"});
 signOut(auth);
 };
 
-ensureProfile(myUID);
-startGPS(myUID);
+ensureProfile(user.uid);
+startGPS(user.uid);
 
-}else showLogin();
+}else{
+showLogin();
+}
 
 });
 
 </script>
+
 </body>
 </html>
