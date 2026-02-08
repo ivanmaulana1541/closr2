@@ -151,8 +151,28 @@ map.setView([myLat,myLng],16);
 }
 
 /////////////////////////////////////////////////////
-// USERS RADAR
+// USERS RADAR + INTERACTION
 /////////////////////////////////////////////////////
+
+function openInteraction(uid,username){
+
+let html=`
+<b>${username}</b><br><br>
+
+<button onclick="openDM('${uid}','${username}')">💬 DM</button>
+<button onclick="alert('Profile coming soon')">📄 Profile</button>
+<button onclick="alert('Friend request sent')">👥 Add Friend</button>
+<button onclick="this.parentElement.remove()">Close</button>
+`;
+
+let div=document.createElement("div");
+div.className="popup";
+div.innerHTML=html;
+div.style.display="block";
+
+document.body.appendChild(div);
+
+}
 
 onValue(ref(db,"users"),snap=>{
 
@@ -175,7 +195,14 @@ style="width:50px;height:50px;border-radius:50%;">
 </div>`
 });
 
-userMarkers[c.key]=L.marker([u.lat,u.lng],{icon}).addTo(map);
+let marker=L.marker([u.lat,u.lng],{icon})
+.addTo(map);
+
+marker.on("click",()=>{
+openInteraction(c.key,u.username||"user");
+});
+
+userMarkers[c.key]=marker;
 
 });
 
