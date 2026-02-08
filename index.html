@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr2 — social radar + moments map</title>
+<title>closr — social map ultimate</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -19,7 +19,7 @@ padding:12px;
 text-align:center;
 }
 
-#map{height:65vh;}
+#map{height:60vh;}
 
 .card{
 background:white;
@@ -39,14 +39,12 @@ cursor:pointer;
 }
 
 input,textarea{
-padding:8px;
-margin:4px;
-width:90%;
+padding:8px;margin:4px;width:95%;
 }
 
 .popup{
 position:absolute;
-top:90px;
+top:80px;
 left:50%;
 transform:translateX(-50%);
 background:white;
@@ -55,6 +53,27 @@ border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
 display:none;
 z-index:999;
+max-width:90%;
+}
+
+.timeline{
+position:absolute;
+bottom:0;
+left:0;
+right:0;
+max-height:40%;
+background:white;
+overflow:auto;
+padding:10px;
+border-top:2px solid #ddd;
+display:none;
+z-index:998;
+}
+
+img.preview{
+max-width:100%;
+border-radius:8px;
+margin-top:6px;
 }
 
 </style>
@@ -62,29 +81,38 @@ z-index:999;
 
 <body>
 
-<header>📍 closr2 — radar + moments map</header>
+<header>📍 closr — social map</header>
 
 <div id="loginBox" class="card"></div>
 
 <button onclick="openMoment()">📸 Share Moment</button>
+<button onclick="toggleTimeline()">📰 Timeline</button>
 
 <div id="map"></div>
 
 <!-- moment popup -->
 <div id="momentBox" class="popup">
-<b>Share moment:</b><br>
+<b>Share moment</b><br>
 <textarea id="momentText"></textarea><br>
+<input type="file" id="photo"><br>
+<label>
+<input type="checkbox" id="friendOnly">
+Friends only
+</label><br>
 <button onclick="sendMoment()">Post</button>
 <button onclick="momentBox.style.display='none'">Close</button>
 </div>
+
+<!-- profile popup -->
+<div id="profileBox" class="popup"></div>
+
+<div id="timeline" class="timeline"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
 
-////////////////////////////////////////////////////////
-// FIREBASE IMPORT
-////////////////////////////////////////////////////////
+//////////////////////// FIREBASE ////////////////////////
 
 import { initializeApp }
 from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -102,14 +130,9 @@ getDatabase,
 ref,
 update,
 set,
-remove,
 push,
 onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
-
-////////////////////////////////////////////////////////
-// FIREBASE CONFIG
-////////////////////////////////////////////////////////
 
 const firebaseConfig={
 apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
@@ -125,9 +148,7 @@ const appFirebase=initializeApp(firebaseConfig);
 const auth=getAuth(appFirebase);
 const db=getDatabase(appFirebase);
 
-////////////////////////////////////////////////////////
-// MAP INIT
-////////////////////////////////////////////////////////
+//////////////////////// MAP ////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
@@ -141,9 +162,7 @@ let momentMarkers={};
 let myUID=null;
 let myLat,myLng;
 
-////////////////////////////////////////////////////////
-// LOGIN UI
-////////////////////////////////////////////////////////
+//////////////////////// LOGIN ////////////////////////
 
 const loginBox=document.getElementById("loginBox");
 
@@ -157,21 +176,32 @@ loginBox.innerHTML=`
 <button id="log">Login</button>
 `;
 
-reg.onclick=()=>{
-createUserWithEmailAndPassword(auth,email.value,pass.value)
+reg.onclick=()=>createUserWithEmailAndPassword(auth,email.value,pass.value)
 .catch(e=>alert(e.message));
-};
 
-log.onclick=()=>{
-signInWithEmailAndPassword(auth,email.value,pass.value)
+log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value)
 .catch(e=>alert(e.message));
-};
-
 }
 
-////////////////////////////////////////////////////////
-// MOMENT SHARE
-////////////////////////////////////////////////////////
+//////////////////////// GPS ////////////////////////
+
+function startGPS(){
+
+navigator.geolocation.watchPosition(pos=>{
+
+myLat=pos.coords.latitude;
+myLng=pos.coords.longitude;
+
+update(ref(db,"users/"+myUID),{
+lat:myLat,lng:myLng,status:"online"
+});
+
+map.setView([myLat,myLng],16);
+
+});
+}
+
+//////////////////////// MOMENT ////////////////////////
 
 window.openMoment=()=>{
 momentBox.style.display="block";
@@ -182,50 +212,38 @@ window.sendMoment=()=>{
 let text=momentText.value.trim();
 if(!text) return;
 
+let reader=new FileReader();
+
+reader.onload=()=>{
+
 push(ref(db,"moments/"+myUID),{
-text:text,
-time:Date.now(),
+text,
+photo:reader.result||"",
 lat:myLat,
-lng:myLng
+lng:myLng,
+time:Date.now(),
+friendsOnly:friendOnly.checked
 });
 
+};
+
+if(photo.files[0]) reader.readAsDataURL(photo.files[0]);
+else reader.onload();
+
 momentText.value="";
+photo.value="";
+friendOnly.checked=false;
 momentBox.style.display="none";
 
 };
 
-////////////////////////////////////////////////////////
-// GPS TRACK
-////////////////////////////////////////////////////////
-
-function startGPS(){
-
-navigator.geolocation.watchPosition(pos=>{
-
-myLat=pos.coords.latitude;
-myLng=pos.coords.longitude;
-
-update(ref(db,"users/"+myUID),{
-lat:myLat,
-lng:myLng,
-status:"online"
-});
-
-map.setView([myLat,myLng],16);
-
-});
-
-}
-
-////////////////////////////////////////////////////////
-// USER RADAR
-////////////////////////////////////////////////////////
+//////////////////////// RADAR ////////////////////////
 
 onValue(ref(db,"users"),snap=>{
 
-for(let id in userMarkers){
+for(let id in userMarkers)
 map.removeLayer(userMarkers[id]);
-}
+
 userMarkers={};
 
 snap.forEach(c=>{
@@ -235,29 +253,27 @@ if(!u.lat) return;
 
 let icon=L.divIcon({
 className:"",
-html:`
-<img src="${u.avatar||'avatar/avatar1.png'}"
-style="width:50px;height:50px;border-radius:50%;">
-<br>${u.username||"user"}
-`
+html:`<img src="${u.avatar||'avatar/avatar1.png'}"
+style="width:50px;border-radius:50%;"><br>${u.username||"user"}`
 });
 
-userMarkers[c.key]=L.marker([u.lat,u.lng],{icon})
-.addTo(map);
+let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
+
+m.on("click",()=>openProfile(c.key));
+
+userMarkers[c.key]=m;
 
 });
 
 });
 
-////////////////////////////////////////////////////////
-// MOMENT MARKERS
-////////////////////////////////////////////////////////
+//////////////////////// MOMENT MARKERS ////////////////////////
 
 onValue(ref(db,"moments"),snap=>{
 
-for(let id in momentMarkers){
+for(let id in momentMarkers)
 map.removeLayer(momentMarkers[id]);
-}
+
 momentMarkers={};
 
 snap.forEach(userMoments=>{
@@ -266,11 +282,14 @@ userMoments.forEach(m=>{
 
 let d=m.val();
 
-if(!d.lat) return;
+if(d.friendsOnly && userMoments.key!==myUID) return;
 
 let marker=L.marker([d.lat,d.lng])
 .addTo(map)
-.bindPopup("📍 "+d.text);
+.bindPopup(`
+📍 ${d.text}
+${d.photo?`<img class="preview" src="${d.photo}">`:""}
+`);
 
 momentMarkers[m.key]=marker;
 
@@ -280,9 +299,77 @@ momentMarkers[m.key]=marker;
 
 });
 
-////////////////////////////////////////////////////////
-// AUTH
-////////////////////////////////////////////////////////
+//////////////////////// PROFILE ////////////////////////
+
+function openProfile(uid){
+
+onValue(ref(db,"moments/"+uid),snap=>{
+
+let html="<b>Profile</b><br><br>";
+
+snap.forEach(m=>{
+
+let d=m.val();
+
+html+=`
+📍 ${d.text}<br>
+${d.photo?`<img class="preview" src="${d.photo}">`:""}
+<hr>
+`;
+
+});
+
+html+=`<button onclick="profileBox.style.display='none'">Close</button>`;
+
+profileBox.innerHTML=html;
+profileBox.style.display="block";
+
+},{onlyOnce:true});
+}
+
+//////////////////////// TIMELINE ////////////////////////
+
+window.toggleTimeline=()=>{
+
+timeline.style.display=
+timeline.style.display==="none"?"block":"none";
+
+};
+
+function loadTimeline(){
+
+onValue(ref(db,"moments"),snap=>{
+
+let feed=[];
+
+snap.forEach(userMoments=>{
+
+userMoments.forEach(m=>{
+feed.push(m.val());
+});
+
+});
+
+feed.sort((a,b)=>b.time-a.time);
+
+let html="<b>Timeline</b><br>";
+
+feed.forEach(f=>{
+
+html+=`
+📍 ${f.text}<br>
+${f.photo?`<img class="preview" src="${f.photo}">`:""}
+<hr>
+`;
+
+});
+
+timeline.innerHTML=html;
+
+});
+}
+
+//////////////////////// AUTH ////////////////////////
 
 onAuthStateChanged(auth,user=>{
 
@@ -291,7 +378,7 @@ if(user){
 myUID=user.uid;
 
 loginBox.innerHTML=`
-Logged in: ${user.email}<br><br>
+Logged in<br>
 <button id="logout">Logout</button>
 `;
 
@@ -301,12 +388,9 @@ signOut(auth);
 };
 
 startGPS();
+loadTimeline();
 
-}else{
-
-showLogin();
-
-}
+}else showLogin();
 
 });
 
