@@ -147,9 +147,22 @@ snap.forEach(c=>{
 let u=c.val();
 if(!u.lat) return;
 
+let avatar=u.avatar || "avatar/avatar1.png";
+
 let icon=L.divIcon({
 className:"",
-html:`👤<br>${u.username||"user"}`
+html:`
+<div style="text-align:center">
+<img src="${avatar}"
+style="
+width:50px;
+height:50px;
+border-radius:50%;
+border:3px solid #4a6cff;
+">
+<br>${u.username||"user"}
+</div>
+`
 });
 
 let m=L.marker([u.lat,u.lng],{icon})
