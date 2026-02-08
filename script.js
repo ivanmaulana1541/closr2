@@ -80,6 +80,8 @@ navigator.geolocation.watchPosition(pos=>{
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
+console.log("GPS OK:", myLat, myLng);
+
 update(ref(db,"users/"+myUID),{
 lat:myLat,
 lng:myLng
@@ -87,7 +89,11 @@ lng:myLng
 
 map.setView([myLat,myLng],16);
 
+},
+err=>{
+alert("GPS gagal / belum diizinkan!");
 });
+
 }
 
 window.centerMe=()=>{
