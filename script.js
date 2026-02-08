@@ -107,7 +107,7 @@ if(!text) return;
 
 let photoURL="";
 
-let file=momentPhoto.files[0];
+let file=momentPhoto?.files?.[0];
 
 if(file){
 
@@ -125,7 +125,7 @@ photo:photoURL,
 lat:myLat,
 lng:myLng,
 time:Date.now(),
-friendsOnly:friendOnly.checked
+friendsOnly:friendOnly?.checked || false
 });
 
 momentText.value="";
@@ -155,7 +155,16 @@ html:`👤<br>${u.username||"user"}`
 let m=L.marker([u.lat,u.lng],{icon})
 .addTo(map);
 
-m.on("click",()=>openProfile(c.key));
+m.on("click",()=>{
+
+if(c.key!==myUID)
+showInteractionPopup(
+m.getLatLng(),
+c.key,
+u.username||"user"
+);
+
+});
 
 userMarkers[c.key]=m;
 
@@ -177,8 +186,6 @@ user.forEach(m=>{
 
 let d=m.val();
 
-if(d.friendsOnly && user.key!==myUID) return;
-
 let mk=L.marker([d.lat,d.lng])
 .addTo(map)
 .bindPopup(`
@@ -194,7 +201,7 @@ momentMarkers[m.key]=mk;
 
 //////////////// PROFILE VIEWER //////////////////
 
-function openProfile(uid){
+window.openProfile=(uid)=>{
 
 onValue(ref(db,"moments/"+uid),snap=>{
 
@@ -218,7 +225,7 @@ profileBox.innerHTML=html;
 profileBox.style.display="block";
 
 },{onlyOnce:true});
-}
+};
 
 //////////////// TIMELINE //////////////////
 
@@ -264,8 +271,11 @@ myUID=user.uid;
 
 loginBox.innerHTML=`
 Logged in<br>
-<button onclick="auth.signOut()">Logout</button>
+<button id="logout">Logout</button>
 `;
+
+document.getElementById("logout").onclick=
+()=>signOut(auth);
 
 startGPS();
 
@@ -274,51 +284,32 @@ startGPS();
 });
 
 //////////////////////////////////////////////////////
-// FLOATING INTERACTION POPUP (near marker)
+// FLOATING INTERACTION POPUP
 //////////////////////////////////////////////////////
 
-let interactionBox = null;
+let interactionBox=null;
 
-function showInteractionPopup(latlng, uid, username) {
+window.showInteractionPopup=(latlng,uid,name)=>{
 
-    // hapus popup lama
-    if (interactionBox) {
-        map.removeLayer(interactionBox);
-        interactionBox = null;
-    }
+if(interactionBox)
+map.closePopup(interactionBox);
 
-    const html = `
-        <div style="
-            background:white;
-            padding:8px;
-            border-radius:8px;
-            box-shadow:0 4px 10px rgba(0,0,0,.3);
-            text-align:center;
-        ">
-            <b>${username}</b><br><br>
+interactionBox=L.popup({
+closeButton:false,
+autoClose:false,
+closeOnClick:false
+})
+.setLatLng(latlng)
+.setContent(`
+<b>${name}</b><br><br>
+<button onclick="openProfile('${uid}')">Profile</button><br>
+<button onclick="closeInteraction()">Close</button>
+`)
+.openOn(map);
 
-            <button onclick="openDM('${uid}')">💬 DM</button><br>
-            <button onclick="openProfile('${uid}')">👁 Profile</button><br>
-            <button onclick="sendFriendRequest('${uid}')">➕ Add Friend</button><br><br>
+};
 
-            <button onclick="closeInteraction()">Close</button>
-        </div>
-    `;
-
-    interactionBox = L.popup({
-        closeButton: false,
-        autoClose: false,
-        closeOnClick: false,
-        offset: [0, -20]
-    })
-    .setLatLng(latlng)
-    .setContent(html)
-    .openOn(map);
-}
-
-function closeInteraction() {
-    if (interactionBox) {
-        map.closePopup(interactionBox);
-        interactionBox = null;
-    }
-}
+window.closeInteraction=()=>{
+if(interactionBox)
+map.closePopup(interactionBox);
+};
