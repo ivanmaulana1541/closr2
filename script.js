@@ -1,7 +1,7 @@
 //////////////// FIREBASE //////////////////
 
 import { initializeApp }
-from "[https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js](https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js)";
+from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 
 import {
 getAuth,
@@ -9,7 +9,7 @@ createUserWithEmailAndPassword,
 signInWithEmailAndPassword,
 signOut,
 onAuthStateChanged
-} from "[https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js](https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js)";
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
 import {
 getDatabase,
@@ -17,19 +17,19 @@ ref,
 update,
 push,
 onValue
-} from "[https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js](https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js)";
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
 import {
 getStorage,
 ref as sRef,
 uploadBytes,
 getDownloadURL
-} from "[https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js](https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js)";
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
 const firebaseConfig={
-apiKey:"AIzaSyD9SIzJ58zYlvwGYewKXwCmrq6SGgDLUM",
+apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
 authDomain:"closr-c35df.firebaseapp.com",
-databaseURL:"[https://closr-c35df-default-rtdb.firebaseio.com](https://closr-c35df-default-rtdb.firebaseio.com)",
+databaseURL:"https://closr-c35df-default-rtdb.firebaseio.com",
 projectId:"closr-c35df",
 storageBucket:"closr-c35df.firebasestorage.app"
 };
@@ -56,12 +56,10 @@ let myLat,myLng;
 //////////////// LOGIN //////////////////
 
 const loginBox=document.getElementById("loginBox");
-const logoutBtn=document.getElementById("logoutBtn");
 
 function showLogin(){
 
 loginBox.innerHTML=`
-
 <h3>Login</h3>
 <input id="email"><br>
 <input id="pass" type="password"><br>
@@ -82,6 +80,8 @@ navigator.geolocation.watchPosition(pos=>{
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
+console.log("GPS OK:", myLat, myLng);
+
 update(ref(db,"users/"+myUID),{
 lat:myLat,
 lng:myLng
@@ -90,14 +90,17 @@ lng:myLng
 map.setView([myLat,myLng],16);
 
 },
-()=>alert("GPS gagal / belum diizinkan!"));
+err=>{
+alert("GPS gagal / belum diizinkan!");
+});
+
 }
 
 window.centerMe=()=>{
 if(myLat) map.setView([myLat,myLng],17);
 };
 
-//////////////// MOMENT //////////////////
+//////////////// MOMENT + PHOTO //////////////////
 
 window.openMoment=()=>{
 momentBox.style.display="block";
@@ -109,11 +112,14 @@ let text=momentText.value.trim();
 if(!text) return;
 
 let photoURL="";
+
 let file=momentPhoto?.files?.[0];
 
 if(file){
 
-let fileRef=sRef(storage,"moments/"+myUID+"/"+Date.now());
+let fileRef=sRef(storage,
+"moments/"+myUID+"/"+Date.now());
+
 await uploadBytes(fileRef,file);
 
 photoURL=await getDownloadURL(fileRef);
@@ -125,7 +131,7 @@ photo:photoURL,
 lat:myLat,
 lng:myLng,
 time:Date.now(),
-friendsOnly:friendOnly?.checked||false
+friendsOnly:friendOnly?.checked || false
 });
 
 momentText.value="";
@@ -133,7 +139,7 @@ momentPhoto.value="";
 momentBox.style.display="none";
 };
 
-//////////////// USERS //////////////////
+//////////////// RADAR USERS //////////////////
 
 onValue(ref(db,"users"),snap=>{
 
@@ -147,35 +153,44 @@ snap.forEach(c=>{
 let u=c.val();
 if(!u.lat) return;
 
-let avatar=u.avatar||"avatar/avatar1.png";
+let avatar=u.avatar || "avatar/avatar1.png";
 
 let icon=L.divIcon({
 className:"",
 html:`
-
 <div style="text-align:center">
 <img src="${avatar}"
-style="width:50px;height:50px;border-radius:50%;border:3px solid #E53935;">
+style="
+width:50px;
+height:50px;
+border-radius:50%;
+border:3px solid #4a6cff;
+">
 <br>${u.username||"user"}
-</div>`
+</div>
+`
 });
 
-let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
+let m=L.marker([u.lat,u.lng],{icon})
+.addTo(map);
 
 m.on("click",()=>{
+
 if(c.key!==myUID)
 showInteractionPopup(
 m.getLatLng(),
 c.key,
 u.username||"user"
 );
+
 });
 
 userMarkers[c.key]=m;
+
 });
 });
 
-//////////////// MOMENTS //////////////////
+//////////////// MOMENT MARKERS //////////////////
 
 onValue(ref(db,"moments"),snap=>{
 
@@ -185,7 +200,9 @@ map.removeLayer(momentMarkers[k]);
 momentMarkers={};
 
 snap.forEach(user=>{
+
 user.forEach(m=>{
+
 let d=m.val();
 
 let mk=L.marker([d.lat,d.lng])
@@ -196,11 +213,12 @@ ${d.photo?`<img class="preview" src="${d.photo}">`:""}
 `);
 
 momentMarkers[m.key]=mk;
+
 });
 });
 });
 
-//////////////// PROFILE //////////////////
+//////////////// PROFILE VIEWER //////////////////
 
 window.openProfile=(uid)=>{
 
@@ -209,13 +227,15 @@ onValue(ref(db,"moments/"+uid),snap=>{
 let html="<b>Profile</b><br><br>";
 
 snap.forEach(m=>{
+
 let d=m.val();
 
 html+=`
 📍 ${d.text}<br>
 ${d.photo?`<img class="preview" src="${d.photo}">`:""}
+<hr>
+`;
 
-<hr>`;
 });
 
 html+=`<button onclick="profileBox.style.display='none'">Close</button>`;
@@ -229,8 +249,10 @@ profileBox.style.display="block";
 //////////////// TIMELINE //////////////////
 
 window.toggleTimeline=()=>{
+
 timelineBox.style.display=
-timelineBox.style.display==="none"?"block":"none";
+timelineBox.style.display==="none"
+?"block":"none";
 };
 
 onValue(ref(db,"moments"),snap=>{
@@ -246,17 +268,43 @@ feed.sort((a,b)=>b.time-a.time);
 let html="<b>Timeline</b><br><br>";
 
 feed.forEach(f=>{
+
 html+=`
 📍 ${f.text}<br>
 ${f.photo?`<img class="preview" src="${f.photo}">`:""}
+<hr>
+`;
 
-<hr>`;
 });
 
 timelineBox.innerHTML=html;
 });
 
-//////////////// INTERACTION POPUP //////////////////
+//////////////// AUTH //////////////////
+
+onAuthStateChanged(auth,user=>{
+
+if(user){
+
+myUID=user.uid;
+
+loginBox.innerHTML=`
+Logged in<br>
+<button id="logout">Logout</button>
+`;
+
+document.getElementById("logout").onclick=
+()=>signOut(auth);
+
+startGPS();
+
+}else showLogin();
+
+});
+
+//////////////////////////////////////////////////////
+// FLOATING INTERACTION POPUP
+//////////////////////////////////////////////////////
 
 let interactionBox=null;
 
@@ -271,32 +319,16 @@ autoClose:false,
 closeOnClick:false
 })
 .setLatLng(latlng)
-.setContent(`<b>${name}</b><br><br> <button onclick="openProfile('${uid}')">Profile</button><br> <button onclick="closeInteraction()">Close</button>`)
+.setContent(`
+<b>${name}</b><br><br>
+<button onclick="openProfile('${uid}')">Profile</button><br>
+<button onclick="closeInteraction()">Close</button>
+`)
 .openOn(map);
+
 };
 
 window.closeInteraction=()=>{
 if(interactionBox)
 map.closePopup(interactionBox);
 };
-
-//////////////// AUTH //////////////////
-
-logoutBtn.onclick=()=>signOut(auth);
-
-onAuthStateChanged(auth,user=>{
-
-if(user){
-
-myUID=user.uid;
-loginBox.innerHTML="";
-logoutBtn.style.display="block";
-startGPS();
-
-}else{
-
-logoutBtn.style.display="none";
-showLogin();
-
-}
-});
