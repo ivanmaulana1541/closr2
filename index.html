@@ -182,6 +182,29 @@ avatar:"avatar/avatar1.png"
 
 }
 
+function showAvatarPicker(uid){
+
+let picker=document.getElementById("avatarPicker");
+picker.style.display="block";
+
+document.querySelectorAll(".pick").forEach(img=>{
+
+img.onclick=()=>{
+
+let avatar=img.getAttribute("src");
+
+update(ref(db,"users/"+uid),{
+avatar:avatar
+});
+
+picker.style.display="none";
+
+};
+
+});
+
+}  
+
 //////////////////////////////////////////////////////
 // GPS + AUTO CENTER
 //////////////////////////////////////////////////////
