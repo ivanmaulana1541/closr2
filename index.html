@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr2 — social radar + moments</title>
+<title>closr2 — social radar + moments map</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -62,7 +62,7 @@ z-index:999;
 
 <body>
 
-<header>📍 closr2 — social radar + moments</header>
+<header>📍 closr2 — radar + moments map</header>
 
 <div id="loginBox" class="card"></div>
 
@@ -108,18 +108,17 @@ onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
 ////////////////////////////////////////////////////////
-// FIREBASE CONFIG — PUNYA KAMU
+// FIREBASE CONFIG
 ////////////////////////////////////////////////////////
 
-const firebaseConfig = {
-apiKey: "AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
-authDomain: "closr-c35df.firebaseapp.com",
-databaseURL: "https://closr-c35df-default-rtdb.firebaseio.com",
-projectId: "closr-c35df",
-storageBucket: "closr-c35df.firebasestorage.app",
-messagingSenderId: "352431132160",
-appId: "1:352431132160:web:6125a40a3853d1fd6592e5",
-measurementId: "G-P79QYMW335"
+const firebaseConfig={
+apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
+authDomain:"closr-c35df.firebaseapp.com",
+databaseURL:"https://closr-c35df-default-rtdb.firebaseio.com",
+projectId:"closr-c35df",
+storageBucket:"closr-c35df.firebasestorage.app",
+messagingSenderId:"352431132160",
+appId:"1:352431132160:web:6125a40a3853d1fd6592e5"
 };
 
 const appFirebase=initializeApp(firebaseConfig);
@@ -136,7 +135,9 @@ L.tileLayer(
 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
 ).addTo(map);
 
-let markers={};
+let userMarkers={};
+let momentMarkers={};
+
 let myUID=null;
 let myLat,myLng;
 
@@ -194,45 +195,6 @@ momentBox.style.display="none";
 };
 
 ////////////////////////////////////////////////////////
-// FRIEND REQUEST
-////////////////////////////////////////////////////////
-
-function sendFriendRequest(targetUID){
-
-if(targetUID===myUID) return;
-
-set(ref(db,"friendRequests/"+targetUID+"/"+myUID),true);
-
-alert("Friend request sent!");
-
-}
-
-function watchFriendRequests(){
-
-onValue(ref(db,"friendRequests/"+myUID),snap=>{
-
-if(!snap.exists()) return;
-
-snap.forEach(req=>{
-
-let from=req.key;
-
-if(confirm("Friend request from "+from+" ?")){
-
-update(ref(db,"friends/"+myUID+"/"+from),true);
-update(ref(db,"friends/"+from+"/"+myUID),true);
-
-remove(ref(db,"friendRequests/"+myUID+"/"+from));
-
-}
-
-});
-
-});
-
-}
-
-////////////////////////////////////////////////////////
 // GPS TRACK
 ////////////////////////////////////////////////////////
 
@@ -256,40 +218,15 @@ map.setView([myLat,myLng],16);
 }
 
 ////////////////////////////////////////////////////////
-// INTERACTION POPUP
-////////////////////////////////////////////////////////
-
-function showInteraction(uid,name){
-
-let box=document.createElement("div");
-
-box.className="popup";
-box.style.display="block";
-
-box.innerHTML=`
-<b>${name}</b><br><br>
-<button id="friendBtn">Add Friend</button>
-<button id="closeBtn">Close</button>
-`;
-
-document.body.appendChild(box);
-
-friendBtn.onclick=()=>sendFriendRequest(uid);
-
-closeBtn.onclick=()=>box.remove();
-
-}
-
-////////////////////////////////////////////////////////
-// RADAR USERS
+// USER RADAR
 ////////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
 
-for(let id in markers){
-map.removeLayer(markers[id]);
+for(let id in userMarkers){
+map.removeLayer(userMarkers[id]);
 }
-markers={};
+userMarkers={};
 
 snap.forEach(c=>{
 
@@ -305,14 +242,39 @@ style="width:50px;height:50px;border-radius:50%;">
 `
 });
 
-let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
+userMarkers[c.key]=L.marker([u.lat,u.lng],{icon})
+.addTo(map);
 
-m.on("click",()=>{
-if(c.key!==myUID)
-showInteraction(c.key,u.username||"user");
 });
 
-markers[c.key]=m;
+});
+
+////////////////////////////////////////////////////////
+// MOMENT MARKERS
+////////////////////////////////////////////////////////
+
+onValue(ref(db,"moments"),snap=>{
+
+for(let id in momentMarkers){
+map.removeLayer(momentMarkers[id]);
+}
+momentMarkers={};
+
+snap.forEach(userMoments=>{
+
+userMoments.forEach(m=>{
+
+let d=m.val();
+
+if(!d.lat) return;
+
+let marker=L.marker([d.lat,d.lng])
+.addTo(map)
+.bindPopup("📍 "+d.text);
+
+momentMarkers[m.key]=marker;
+
+});
 
 });
 
@@ -338,7 +300,6 @@ update(ref(db,"users/"+myUID),{status:"offline"});
 signOut(auth);
 };
 
-watchFriendRequests();
 startGPS();
 
 }else{
@@ -350,6 +311,5 @@ showLogin();
 });
 
 </script>
-
 </body>
 </html>
