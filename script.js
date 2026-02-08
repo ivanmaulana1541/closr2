@@ -1,6 +1,4 @@
-////////////////////////////////////////////////
-// FIREBASE
-////////////////////////////////////////////////
+//////////////// FIREBASE //////////////////
 
 import { initializeApp }
 from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -18,28 +16,30 @@ getDatabase,
 ref,
 update,
 push,
-set,
-remove,
 onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
-const firebaseConfig = {
-apiKey: "AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
-authDomain: "closr-c35df.firebaseapp.com",
-databaseURL: "https://closr-c35df-default-rtdb.firebaseio.com",
-projectId: "closr-c35df",
-storageBucket: "closr-c35df.firebasestorage.app",
-messagingSenderId: "352431132160",
-appId: "1:352431132160:web:6125a40a3853d1fd6592e5"
+import {
+getStorage,
+ref as sRef,
+uploadBytes,
+getDownloadURL
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
+
+const firebaseConfig={
+apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
+authDomain:"closr-c35df.firebaseapp.com",
+databaseURL:"https://closr-c35df-default-rtdb.firebaseio.com",
+projectId:"closr-c35df",
+storageBucket:"closr-c35df.firebasestorage.app"
 };
 
 const app=initializeApp(firebaseConfig);
 const auth=getAuth(app);
 const db=getDatabase(app);
+const storage=getStorage(app);
 
-////////////////////////////////////////////////
-// MAP
-////////////////////////////////////////////////
+//////////////// MAP //////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
@@ -47,13 +47,13 @@ L.tileLayer(
 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
 ).addTo(map);
 
+let userMarkers={};
+let momentMarkers={};
+
 let myUID=null;
 let myLat,myLng;
-let markers={};
 
-////////////////////////////////////////////////
-// LOGIN UI
-////////////////////////////////////////////////
+//////////////// LOGIN //////////////////
 
 const loginBox=document.getElementById("loginBox");
 
@@ -67,51 +67,11 @@ loginBox.innerHTML=`
 <button id="log">Login</button>
 `;
 
-reg.onclick=()=>{
-createUserWithEmailAndPassword(auth,email.value,pass.value)
-.catch(e=>alert(e.message));
-};
-
-log.onclick=()=>{
-signInWithEmailAndPassword(auth,email.value,pass.value)
-.catch(e=>alert(e.message));
-};
-
+reg.onclick=()=>createUserWithEmailAndPassword(auth,email.value,pass.value);
+log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value);
 }
 
-////////////////////////////////////////////////
-// USERNAME + AVATAR SETUP
-////////////////////////////////////////////////
-
-window.saveUsername=()=>{
-
-let name=uname.value.trim();
-if(!name) return;
-
-update(ref(db,"users/"+myUID),{username:name});
-
-usernameBox.style.display="none";
-avatarBox.style.display="block";
-
-};
-
-document.querySelectorAll(".pick").forEach(img=>{
-
-img.onclick=()=>{
-
-update(ref(db,"users/"+myUID),{
-avatar:img.src
-});
-
-avatarBox.style.display="none";
-
-};
-
-});
-
-////////////////////////////////////////////////
-// GPS
-////////////////////////////////////////////////
+//////////////// GPS //////////////////
 
 function startGPS(){
 
@@ -128,156 +88,59 @@ lng:myLng
 map.setView([myLat,myLng],16);
 
 });
-
 }
 
 window.centerMe=()=>{
 if(myLat) map.setView([myLat,myLng],17);
 };
 
-////////////////////////////////////////////////
-// MOMENT
-////////////////////////////////////////////////
+//////////////// MOMENT + PHOTO //////////////////
 
 window.openMoment=()=>{
 momentBox.style.display="block";
 };
 
-window.sendMoment=()=>{
+window.sendMoment=async()=>{
 
 let text=momentText.value.trim();
 if(!text) return;
 
+let photoURL="";
+
+let file=momentPhoto.files[0];
+
+if(file){
+
+let fileRef=sRef(storage,
+"moments/"+myUID+"/"+Date.now());
+
+await uploadBytes(fileRef,file);
+
+photoURL=await getDownloadURL(fileRef);
+}
+
 push(ref(db,"moments/"+myUID),{
 text,
+photo:photoURL,
 lat:myLat,
 lng:myLng,
-time:Date.now()
+time:Date.now(),
+friendsOnly:friendOnly.checked
 });
 
 momentText.value="";
+momentPhoto.value="";
 momentBox.style.display="none";
-
 };
 
-////////////////////////////////////////////////
-// FRIEND SYSTEM
-////////////////////////////////////////////////
-
-function sendFriend(uid){
-set(ref(db,"friendReq/"+uid+"/"+myUID),true);
-alert("Request sent!");
-}
-
-function watchRequests(){
-
-onValue(ref(db,"friendReq/"+myUID),snap=>{
-
-snap.forEach(r=>{
-
-let from=r.key;
-
-if(confirm("Friend request from "+from+" ?")){
-
-update(ref(db,"friends/"+myUID+"/"+from),true);
-update(ref(db,"friends/"+from+"/"+myUID),true);
-
-remove(ref(db,"friendReq/"+myUID+"/"+from));
-
-}
-
-});
-
-});
-
-}
-
-////////////////////////////////////////////////
-// INTERACTION POPUP
-////////////////////////////////////////////////
-
-function showInteraction(uid,name){
-
-interactionBox.style.display="block";
-
-interactionBox.innerHTML=`
-<b>${name}</b><br><br>
-<button onclick="openDM('${uid}','${name}')">DM</button>
-<button onclick="sendFriend('${uid}')">Add Friend</button>
-<button onclick="interactionBox.style.display='none'">Close</button>
-`;
-
-}
-
-////////////////////////////////////////////////
-// DM SYSTEM
-////////////////////////////////////////////////
-
-let chatUID=null;
-
-window.openDM=(uid,name)=>{
-
-chatUID=uid;
-
-chatTitle.innerText="Chat: "+name;
-chatBox.style.display="block";
-
-listenDM();
-
-};
-
-window.closeChat=()=>{
-chatBox.style.display="none";
-};
-
-window.sendDM=()=>{
-
-let msg=chatInput.value.trim();
-if(!msg) return;
-
-let room=[myUID,chatUID].sort().join("_");
-
-push(ref(db,"dm/"+room),{
-from:myUID,
-text:msg
-});
-
-chatInput.value="";
-
-};
-
-function listenDM(){
-
-let room=[myUID,chatUID].sort().join("_");
-
-onValue(ref(db,"dm/"+room),snap=>{
-
-chatLog.innerHTML="";
-
-snap.forEach(m=>{
-
-let d=m.val();
-
-chatLog.innerHTML+=
-(d.from===myUID?"me: ":"them: ")
-+d.text+"<br>";
-
-});
-
-});
-
-}
-
-////////////////////////////////////////////////
-// RADAR
-////////////////////////////////////////////////
+//////////////// RADAR USERS //////////////////
 
 onValue(ref(db,"users"),snap=>{
 
-for(let id in markers){
-map.removeLayer(markers[id]);
-}
-markers={};
+for(let id in userMarkers)
+map.removeLayer(userMarkers[id]);
+
+userMarkers={};
 
 snap.forEach(c=>{
 
@@ -286,29 +149,112 @@ if(!u.lat) return;
 
 let icon=L.divIcon({
 className:"",
-html:`
-<img src="${u.avatar||'avatar/avatar1.png'}"
-style="width:50px;height:50px;border-radius:50%;">
-<br>${u.username||"user"}
-`
+html:`👤<br>${u.username||"user"}`
 });
 
-let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
+let m=L.marker([u.lat,u.lng],{icon})
+.addTo(map);
 
-m.on("click",()=>{
-if(c.key!==myUID)
-showInteraction(c.key,u.username||"user");
-});
+m.on("click",()=>openProfile(c.key));
 
-markers[c.key]=m;
+userMarkers[c.key]=m;
 
 });
+});
+
+//////////////// MOMENT MARKERS //////////////////
+
+onValue(ref(db,"moments"),snap=>{
+
+for(let k in momentMarkers)
+map.removeLayer(momentMarkers[k]);
+
+momentMarkers={};
+
+snap.forEach(user=>{
+
+user.forEach(m=>{
+
+let d=m.val();
+
+if(d.friendsOnly && user.key!==myUID) return;
+
+let mk=L.marker([d.lat,d.lng])
+.addTo(map)
+.bindPopup(`
+📍 ${d.text}
+${d.photo?`<img class="preview" src="${d.photo}">`:""}
+`);
+
+momentMarkers[m.key]=mk;
+
+});
+});
+});
+
+//////////////// PROFILE VIEWER //////////////////
+
+function openProfile(uid){
+
+onValue(ref(db,"moments/"+uid),snap=>{
+
+let html="<b>Profile</b><br><br>";
+
+snap.forEach(m=>{
+
+let d=m.val();
+
+html+=`
+📍 ${d.text}<br>
+${d.photo?`<img class="preview" src="${d.photo}">`:""}
+<hr>
+`;
 
 });
 
-////////////////////////////////////////////////
-// AUTH
-////////////////////////////////////////////////
+html+=`<button onclick="profileBox.style.display='none'">Close</button>`;
+
+profileBox.innerHTML=html;
+profileBox.style.display="block";
+
+},{onlyOnce:true});
+}
+
+//////////////// TIMELINE //////////////////
+
+window.toggleTimeline=()=>{
+
+timelineBox.style.display=
+timelineBox.style.display==="none"
+?"block":"none";
+};
+
+onValue(ref(db,"moments"),snap=>{
+
+let feed=[];
+
+snap.forEach(user=>{
+user.forEach(m=>feed.push(m.val()));
+});
+
+feed.sort((a,b)=>b.time-a.time);
+
+let html="<b>Timeline</b><br><br>";
+
+feed.forEach(f=>{
+
+html+=`
+📍 ${f.text}<br>
+${f.photo?`<img class="preview" src="${f.photo}">`:""}
+<hr>
+`;
+
+});
+
+timelineBox.innerHTML=html;
+});
+
+//////////////// AUTH //////////////////
 
 onAuthStateChanged(auth,user=>{
 
@@ -317,27 +263,11 @@ if(user){
 myUID=user.uid;
 
 loginBox.innerHTML=`
-Logged in: ${user.email}<br>
-<button id="logout">Logout</button>
+Logged in<br>
+<button onclick="auth.signOut()">Logout</button>
 `;
 
-logout.onclick=()=>signOut(auth);
-
 startGPS();
-watchRequests();
-
-// cek profile
-onValue(ref(db,"users/"+myUID),snap=>{
-
-let d=snap.val()||{};
-
-if(!d.username)
-usernameBox.style.display="block";
-
-else if(!d.avatar)
-avatarBox.style.display="block";
-
-},{onlyOnce:true});
 
 }else showLogin();
 
