@@ -25,21 +25,30 @@ font-size:18px;
 }
 
 #map{
-height:90vh;
+height:70vh;
 }
 
-.centerBtn{
-position:absolute;
-bottom:20px;
-right:15px;
+.card{
+background:white;
+padding:10px;
+margin:10px;
+border-radius:8px;
+}
+
+button{
+padding:8px;
+margin:4px;
 background:#4a6cff;
 color:white;
 border:none;
-padding:12px;
-border-radius:50%;
-font-size:18px;
-box-shadow:0 4px 10px rgba(0,0,0,.2);
+border-radius:6px;
 cursor:pointer;
+}
+
+input{
+padding:8px;
+margin:4px;
+width:90%;
 }
 
 .pick{
@@ -52,7 +61,20 @@ border:3px solid transparent;
 
 .pick:hover{
 border-color:#4a6cff;
-}  
+}
+
+#avatarPicker{
+position:absolute;
+top:70px;
+left:50%;
+transform:translateX(-50%);
+background:white;
+padding:10px;
+border-radius:10px;
+box-shadow:0 4px 10px rgba(0,0,0,.2);
+display:none;
+z-index:999;
+}
 
 </style>
 
@@ -62,19 +84,11 @@ border-color:#4a6cff;
 
 <header>📍 closr2 — social radar</header>
 
+<div id="loginBox" class="card"></div>
+
 <div id="map"></div>
-  <div id="avatarPicker" style="
-position:absolute;
-top:60px;
-left:50%;
-transform:translateX(-50%);
-background:white;
-padding:10px;
-border-radius:10px;
-box-shadow:0 4px 10px rgba(0,0,0,.2);
-display:none;
-z-index:999;
-">
+
+<div id="avatarPicker">
 
 <b>Pilih avatar:</b><br><br>
 
@@ -85,25 +99,24 @@ z-index:999;
 
 </div>
 
-<button class="centerBtn" onclick="centerMe()">🎯</button>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
 
-//////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
 // FIREBASE IMPORT
-//////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
 
 import { initializeApp }
 from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 
 import {
 getAuth,
-signInAnonymously,
+createUserWithEmailAndPassword,
+signInWithEmailAndPassword,
+signOut,
 onAuthStateChanged
-}
-from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
 import {
 getDatabase,
@@ -111,69 +124,94 @@ ref,
 set,
 update,
 onValue
-}
-from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
-//////////////////////////////////////////////////////
-// FIREBASE CONFIG
-//////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
+// FIREBASE CONFIG — PUNYA KAMU
+////////////////////////////////////////////////////////
 
-const firebaseConfig = {
+const firebaseConfig={
 apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
 authDomain:"closr-c35df.firebaseapp.com",
 databaseURL:"https://closr-c35df-default-rtdb.firebaseio.com",
-projectId:"closr-c35df",
-storageBucket:"closr-c35df.firebasestorage.app",
-messagingSenderId:"352431132160",
-appId:"1:352431132160:web:6125a40a3853d1fd6592e5"
+projectId:"closr-c35df"
 };
 
-//////////////////////////////////////////////////////
-// INIT FIREBASE
-//////////////////////////////////////////////////////
+const appFirebase=initializeApp(firebaseConfig);
+const auth=getAuth(appFirebase);
+const db=getDatabase(appFirebase);
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-signInAnonymously(auth);
-
-//////////////////////////////////////////////////////
-// MAP INIT — CARTO
-//////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
+// MAP INIT
+////////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
 L.tileLayer(
-"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-{attribution:"© CARTO"}
+"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
 ).addTo(map);
 
-//////////////////////////////////////////////////////
-// AVATAR ICON
-//////////////////////////////////////////////////////
+let markers={};
+let myLat,myLng;
 
-function makeAvatar(url){
+////////////////////////////////////////////////////////
+// LOGIN UI
+////////////////////////////////////////////////////////
 
-return L.divIcon({
-className:"",
-html:`
-<img src="${url}"
-style="
-width:60px;
-height:60px;
-border-radius:50%;
-border:3px solid #ff7b00;">
-`
+const loginBox=document.getElementById("loginBox");
+
+function showLogin(){
+
+loginBox.innerHTML=`
+<h3>Login</h3>
+<input id="email" placeholder="email"><br>
+<input id="pass" type="password" placeholder="password"><br>
+<button id="reg">Register</button>
+<button id="log">Login</button>
+`;
+
+reg.onclick=()=>{
+createUserWithEmailAndPassword(auth,email.value,pass.value)
+.catch(e=>alert(e.message));
+};
+
+log.onclick=()=>{
+signInWithEmailAndPassword(auth,email.value,pass.value)
+.catch(e=>alert(e.message));
+};
+
+}
+
+////////////////////////////////////////////////////////
+// AVATAR PICKER
+////////////////////////////////////////////////////////
+
+function showAvatarPicker(uid){
+
+let picker=document.getElementById("avatarPicker");
+picker.style.display="block";
+
+document.querySelectorAll(".pick").forEach(img=>{
+
+img.onclick=()=>{
+
+update(ref(db,"users/"+uid),{
+avatar:img.getAttribute("src")
+});
+
+picker.style.display="none";
+
+};
+
 });
 
 }
 
-//////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
 // USER PROFILE INIT
-//////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
 
-function ensureUserProfile(uid){
+function ensureProfile(uid){
 
 onValue(ref(db,"users/"+uid+"/avatar"),snap=>{
 
@@ -189,43 +227,9 @@ username:"user_"+uid.slice(0,4)
 
 }
 
-function showAvatarPicker(uid){
-
-let picker=document.getElementById("avatarPicker");
-picker.style.display="block";
-
-document.querySelectorAll(".pick").forEach(img=>{
-
-img.onclick=()=>{
-
-let avatar=img.getAttribute("src");
-
-update(ref(db,"users/"+uid),{
-avatar:avatar
-});
-
-picker.style.display="none";
-
-};
-
-});
-
-}  
-
-//////////////////////////////////////////////////////
-// GPS + AUTO CENTER
-//////////////////////////////////////////////////////
-
-let myLat=null;
-let myLng=null;
-
-function centerMe(){
-
-if(myLat && myLng){
-map.flyTo([myLat,myLng],16);
-}
-
-}
+////////////////////////////////////////////////////////
+// GPS TRACK
+////////////////////////////////////////////////////////
 
 function startGPS(uid){
 
@@ -234,79 +238,74 @@ navigator.geolocation.watchPosition(pos=>{
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
-// auto follow
-map.flyTo([myLat,myLng],16);
+update(ref(db,"users/"+uid),{
+lat:myLat,
+lng:myLng
+});
 
-set(ref(db,"users/"+uid+"/lat"),myLat);
-set(ref(db,"users/"+uid+"/lng"),myLng);
+map.setView([myLat,myLng],16);
 
-},
-()=>{
-alert("GPS gagal");
-},
-{enableHighAccuracy:true});
+});
 
 }
 
-//////////////////////////////////////////////////////
-// RADAR USER MARKERS
-//////////////////////////////////////////////////////
-
-let markers={};
+////////////////////////////////////////////////////////
+// RADAR
+////////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
+
+for(let id in markers){
+map.removeLayer(markers[id]);
+}
+markers={};
 
 snap.forEach(c=>{
 
 let u=c.val();
-let id=c.key;
+if(!u.lat) return;
 
-if(!u.lat || !u.lng) return;
+let icon=L.divIcon({
+className:"",
+html:`
+<img src="${u.avatar||'avatar/avatar1.png'}"
+style="width:50px;height:50px;border-radius:50%;">
+<br>${u.username||"user"}
+`
+});
 
-let icon=makeAvatar(u.avatar || "avatar/avatar1.png");
+markers[c.key]=L.marker([u.lat,u.lng],{icon})
+.addTo(map);
 
-if(markers[id]){
+});
 
-markers[id]
-.setLatLng([u.lat,u.lng])
-.setIcon(icon)
-.bindPopup(`${u.username || "user"} online`);
+});
+
+////////////////////////////////////////////////////////
+// AUTH STATE
+////////////////////////////////////////////////////////
+
+onAuthStateChanged(auth,user=>{
+
+if(user){
+
+loginBox.innerHTML=`
+Logged in: ${user.email}<br>
+<button id="logout">Logout</button>
+`;
+
+logout.onclick=()=>signOut(auth);
+
+ensureProfile(user.uid);
+startGPS(user.uid);
 
 }else{
 
-markers[id]=L.marker(
-[u.lat,u.lng],
-{icon}
-)
-.addTo(map)
-.bindPopup(`${u.username || "user"} online`);
+showLogin();
 
 }
 
 });
-
-});
-
-//////////////////////////////////////////////////////
-// AUTH READY
-//////////////////////////////////////////////////////
-
-onAuthStateChanged(auth,user=>{
-
-if(!user) return;
-
-let uid=user.uid;
-
-ensureUserProfile(uid);
-startGPS(uid);
-
-});
-
-//////////////////////////////////////////////////////
-// EXPOSE BUTTON FUNC
-//////////////////////////////////////////////////////
-
-window.centerMe=centerMe;
 
 </script>
 
