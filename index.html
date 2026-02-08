@@ -91,21 +91,18 @@ z-index:999;
 
 <!-- USERNAME INPUT -->
 <div id="usernameBox">
-<b>Masukkan username:</b><br>
-<input id="uname"><br>
+<b>Masukkan username:</b><br><br>
+<input id="uname"><br><br>
 <button id="saveU">Save</button>
 </div>
 
 <!-- AVATAR PICKER -->
 <div id="avatarPicker">
-
 <b>Pilih avatar:</b><br><br>
-
 <img src="avatar/avatar1.png" class="pick">
 <img src="avatar/avatar2.png" class="pick">
 <img src="avatar/avatar3.png" class="pick">
 <img src="avatar/avatar4.png" class="pick">
-
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -113,7 +110,7 @@ z-index:999;
 <script type="module">
 
 ////////////////////////////////////////////////////////
-// FIREBASE IMPORT
+// FIREBASE
 ////////////////////////////////////////////////////////
 
 import { initializeApp }
@@ -134,10 +131,6 @@ update,
 onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
-////////////////////////////////////////////////////////
-// FIREBASE CONFIG
-////////////////////////////////////////////////////////
-
 const firebaseConfig={
 apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
 authDomain:"closr-c35df.firebaseapp.com",
@@ -150,7 +143,7 @@ const auth=getAuth(appFirebase);
 const db=getDatabase(appFirebase);
 
 ////////////////////////////////////////////////////////
-// MAP INIT
+// MAP
 ////////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
@@ -249,25 +242,8 @@ onValue(ref(db,"users/"+uid),snap=>{
 
 let data=snap.val()||{};
 
-// 🔥 username belum ada → tanya user
-if(!data.username){
-
-let name=prompt("Masukkan username:");
-
-if(name){
-
-update(ref(db,"users/"+uid),{
-username:name
-});
-
-}
-
-}
-
-// avatar belum ada → buka picker
-if(!data.avatar){
-showAvatarPicker(uid);
-}
+if(!data.username) askUsername(uid);
+if(!data.avatar) showAvatarPicker(uid);
 
 },{onlyOnce:true});
 
@@ -312,12 +288,15 @@ snap.forEach(c=>{
 let u=c.val();
 if(!u.lat) return;
 
+let dot = u.status==="online" ? "🟢" : "⚪";
+
 let icon=L.divIcon({
 className:"",
 html:`
 <img src="${u.avatar||'avatar/avatar1.png'}"
 style="width:50px;height:50px;border-radius:50%;">
 <br>${u.username||"user"}
+<br>${dot}
 `
 });
 
