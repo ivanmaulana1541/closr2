@@ -63,13 +63,14 @@ border:3px solid transparent;
 border-color:#4a6cff;
 }
 
-#avatarPicker{
+#avatarPicker,
+#usernameBox{
 position:absolute;
 top:70px;
 left:50%;
 transform:translateX(-50%);
 background:white;
-padding:10px;
+padding:12px;
 border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
 display:none;
@@ -88,6 +89,14 @@ z-index:999;
 
 <div id="map"></div>
 
+<!-- USERNAME INPUT -->
+<div id="usernameBox">
+<b>Masukkan username:</b><br>
+<input id="uname"><br>
+<button id="saveU">Save</button>
+</div>
+
+<!-- AVATAR PICKER -->
 <div id="avatarPicker">
 
 <b>Pilih avatar:</b><br><br>
@@ -121,13 +130,12 @@ onAuthStateChanged
 import {
 getDatabase,
 ref,
-set,
 update,
 onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
 ////////////////////////////////////////////////////////
-// FIREBASE CONFIG — PUNYA KAMU
+// FIREBASE CONFIG
 ////////////////////////////////////////////////////////
 
 const firebaseConfig={
@@ -183,6 +191,30 @@ signInWithEmailAndPassword(auth,email.value,pass.value)
 }
 
 ////////////////////////////////////////////////////////
+// USERNAME PICKER
+////////////////////////////////////////////////////////
+
+function askUsername(uid){
+
+let box=document.getElementById("usernameBox");
+box.style.display="block";
+
+saveU.onclick=()=>{
+
+let name=uname.value.trim();
+if(!name) return;
+
+update(ref(db,"users/"+uid),{
+username:name
+});
+
+box.style.display="none";
+
+};
+
+}
+
+////////////////////////////////////////////////////////
 // AVATAR PICKER
 ////////////////////////////////////////////////////////
 
@@ -208,22 +240,19 @@ picker.style.display="none";
 }
 
 ////////////////////////////////////////////////////////
-// USER PROFILE INIT
+// PROFILE INIT
 ////////////////////////////////////////////////////////
 
 function ensureProfile(uid){
 
-onValue(ref(db,"users/"+uid+"/avatar"),snap=>{
+onValue(ref(db,"users/"+uid),snap=>{
 
-if(!snap.exists()){
-showAvatarPicker(uid);
-}
+let d=snap.val()||{};
+
+if(!d.username) askUsername(uid);
+if(!d.avatar) showAvatarPicker(uid);
 
 },{onlyOnce:true});
-
-update(ref(db,"users/"+uid),{
-username:"user_"+uid.slice(0,4)
-});
 
 }
 
@@ -282,7 +311,7 @@ markers[c.key]=L.marker([u.lat,u.lng],{icon})
 });
 
 ////////////////////////////////////////////////////////
-// AUTH STATE
+// AUTH
 ////////////////////////////////////////////////////////
 
 onAuthStateChanged(auth,user=>{
