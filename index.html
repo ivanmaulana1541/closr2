@@ -409,10 +409,13 @@ if(user){
 myUID=user.uid;
 
 loginBox.innerHTML=`
-Logged in<br>
+Logged in: ${user.email}<br><br>
+<button id="timelineBtn">Timeline</button>
 <button id="logout">Logout</button>
 `;
 
+timelineBtn.onclick=toggleTimeline;
+  
 logout.onclick=()=>{
 update(ref(db,"users/"+myUID),{status:"offline"});
 signOut(auth);
