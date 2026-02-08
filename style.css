@@ -11,9 +11,7 @@ padding:12px;
 text-align:center;
 }
 
-#map{
-height:65vh;
-}
+#map{height:65vh;}
 
 .card{
 background:white;
@@ -49,4 +47,20 @@ border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
 display:none;
 z-index:999;
+max-width:300px;
+}
+
+.pick{
+width:60px;
+border-radius:50%;
+cursor:pointer;
+margin:5px;
+}
+
+#chatLog{
+height:150px;
+overflow:auto;
+border:1px solid #ddd;
+padding:5px;
+margin-bottom:5px;
 }
