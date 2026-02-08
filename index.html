@@ -196,7 +196,6 @@ markers[c.key]=L.marker(
 //////////////////////////////////////////////////////
 // GPS SYNC
 //////////////////////////////////////////////////////
-
 function startGPS(){
 
 navigator.geolocation.watchPosition(pos=>{
@@ -204,11 +203,8 @@ navigator.geolocation.watchPosition(pos=>{
 let lat=pos.coords.latitude;
 let lng=pos.coords.longitude;
 
-set(ref(db,"users/"+auth.currentUser.uid),{
-lat,lng,
-username:"online",
-avatar:"avatar/avatar1.png"
-});
+set(ref(db,"users/"+auth.currentUser.uid+"/lat"),lat);
+set(ref(db,"users/"+auth.currentUser.uid+"/lng"),lng);
 
 });
 
