@@ -247,10 +247,27 @@ function ensureProfile(uid){
 
 onValue(ref(db,"users/"+uid),snap=>{
 
-let d=snap.val()||{};
+let data=snap.val()||{};
 
-if(!d.username) askUsername(uid);
-if(!d.avatar) showAvatarPicker(uid);
+// 🔥 username belum ada → tanya user
+if(!data.username){
+
+let name=prompt("Masukkan username:");
+
+if(name){
+
+update(ref(db,"users/"+uid),{
+username:name
+});
+
+}
+
+}
+
+// avatar belum ada → buka picker
+if(!data.avatar){
+showAvatarPicker(uid);
+}
 
 },{onlyOnce:true});
 
