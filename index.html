@@ -3,145 +3,67 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr2 — social radar + DM</title>
+<title>closr2 — social radar + DM + moments</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
 
-body{
-margin:0;
-font-family:Arial;
-background:#eef1f7;
-}
+body{margin:0;font-family:Arial;background:#eef1f7;}
 
 header{
-background:#4a6cff;
-color:white;
-padding:12px;
-text-align:center;
-font-size:18px;
+background:#4a6cff;color:white;padding:12px;text-align:center;
 }
 
-#map{
-height:70vh;
-}
+#map{height:65vh;}
 
 .card{
-background:white;
-padding:10px;
-margin:10px;
-border-radius:8px;
+background:white;padding:10px;margin:10px;border-radius:8px;
 }
 
 button{
-padding:8px;
-margin:4px;
-background:#4a6cff;
-color:white;
-border:none;
-border-radius:6px;
-cursor:pointer;
+padding:8px;margin:4px;background:#4a6cff;
+color:white;border:none;border-radius:6px;
 }
 
-input{
-padding:8px;
-margin:4px;
-width:90%;
+input,textarea{
+padding:8px;margin:4px;width:90%;
 }
 
-.pick{
-width:60px;
-margin:5px;
-cursor:pointer;
-border-radius:50%;
-border:3px solid transparent;
-}
-
-.pick:hover{
-border-color:#4a6cff;
-}
-
-#avatarPicker,
-#usernameBox,
-#chatBox,
-#userMenu{
-position:absolute;
-top:90px;
-left:50%;
+.popup{
+position:absolute;top:90px;left:50%;
 transform:translateX(-50%);
-background:white;
-padding:12px;
+background:white;padding:12px;
 border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
-display:none;
-z-index:999;
-width:300px;
-}
-
-#chatMessages{
-height:180px;
-overflow:auto;
-border:1px solid #ddd;
-padding:6px;
-margin-bottom:6px;
+display:none;z-index:999;
 }
 
 </style>
-
 </head>
 
 <body>
 
-<header>📍 closr2 — social radar + DM</header>
+<header>📍 closr2 — social radar + moments</header>
 
 <div id="loginBox" class="card"></div>
 
+<button onclick="openMoment()">📸 Share Moment</button>
+
 <div id="map"></div>
 
-<!-- USERNAME -->
-<div id="usernameBox">
-<b>Masukkan username:</b><br><br>
-<input id="uname"><br>
-<button id="saveU">Save</button>
-</div>
-
-<!-- AVATAR -->
-<div id="avatarPicker">
-<b>Pilih avatar:</b><br><br>
-<img src="avatar/avatar1.png" class="pick">
-<img src="avatar/avatar2.png" class="pick">
-<img src="avatar/avatar3.png" class="pick">
-<img src="avatar/avatar4.png" class="pick">
-</div>
-
-<!-- USER MENU -->
-<div id="userMenu">
-<b id="menuName"></b><br><br>
-<button id="dmBtn">💬 DM</button>
-<button onclick="alert('profile soon')">👤 Profile</button>
-<button onclick="alert('friend system next')">➕ Friend</button>
-<br><br>
-<button onclick="userMenu.style.display='none'">Close</button>
-</div>
-
-<!-- CHAT -->
-<div id="chatBox">
-<b id="chatTitle"></b><br><br>
-<div id="chatMessages"></div>
-<input id="chatInput" placeholder="ketik pesan">
-<button id="sendBtn">Send</button>
-<button onclick="chatBox.style.display='none'">Close</button>
+<!-- moment popup -->
+<div id="momentBox" class="popup">
+<b>Share moment:</b><br>
+<textarea id="momentText"></textarea><br>
+<button onclick="sendMoment()">Post</button>
+<button onclick="momentBox.style.display='none'">Close</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
-
-////////////////////////////////////////////////////////
-// FIREBASE
-////////////////////////////////////////////////////////
 
 import { initializeApp }
 from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -173,9 +95,9 @@ const appFirebase=initializeApp(firebaseConfig);
 const auth=getAuth(appFirebase);
 const db=getDatabase(appFirebase);
 
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 // MAP
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
@@ -183,91 +105,33 @@ L.tileLayer(
 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
 ).addTo(map);
 
-let markers={};
 let myUID=null;
 let myLat,myLng;
+let userMarkers={};
+let momentMarkers={};
 
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 // LOGIN UI
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
 
 function showLogin(){
-
 loginBox.innerHTML=`
 <h3>Login</h3>
-<input id="email" placeholder="email"><br>
-<input id="pass" type="password" placeholder="password"><br>
+<input id="email"><br>
+<input id="pass" type="password"><br>
 <button id="reg">Register</button>
 <button id="log">Login</button>
 `;
 
-reg.onclick=()=>{
-createUserWithEmailAndPassword(auth,email.value,pass.value)
-.catch(e=>alert(e.message));
-};
-
-log.onclick=()=>{
-signInWithEmailAndPassword(auth,email.value,pass.value)
-.catch(e=>alert(e.message));
-};
-
+reg.onclick=()=>createUserWithEmailAndPassword(auth,email.value,pass.value);
+log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value);
 }
 
-////////////////////////////////////////////////////////
-// PROFILE SETUP
-////////////////////////////////////////////////////////
-
-function askUsername(uid){
-
-usernameBox.style.display="block";
-
-saveU.onclick=()=>{
-
-let name=uname.value.trim();
-if(!name) return;
-
-update(ref(db,"users/"+uid),{username:name});
-usernameBox.style.display="none";
-
-};
-
-}
-
-function showAvatarPicker(uid){
-
-avatarPicker.style.display="block";
-
-document.querySelectorAll(".pick").forEach(img=>{
-
-img.onclick=()=>{
-update(ref(db,"users/"+uid),{
-avatar:img.getAttribute("src")
-});
-avatarPicker.style.display="none";
-};
-
-});
-
-}
-
-function ensureProfile(uid){
-
-onValue(ref(db,"users/"+uid),snap=>{
-
-let u=snap.val()||{};
-
-if(!u.username) askUsername(uid);
-if(!u.avatar) showAvatarPicker(uid);
-
-},{onlyOnce:true});
-
-}
-
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 // GPS
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 
 function startGPS(uid){
 
@@ -277,9 +141,7 @@ myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
 update(ref(db,"users/"+uid),{
-lat:myLat,
-lng:myLng,
-status:"online"
+lat:myLat,lng:myLng,status:"online"
 });
 
 map.setView([myLat,myLng],16);
@@ -288,82 +150,16 @@ map.setView([myLat,myLng],16);
 
 }
 
-////////////////////////////////////////////////////////
-// CHAT SYSTEM
-////////////////////////////////////////////////////////
-
-let chatTarget=null;
-
-function chatID(a,b){
-return a<b ? a+"_"+b : b+"_"+a;
-}
-
-function openChat(uid,name){
-
-chatTarget=uid;
-
-chatTitle.innerText="Chat: "+name;
-chatBox.style.display="block";
-
-let id=chatID(myUID,uid);
-
-onValue(ref(db,"chats/"+id),snap=>{
-
-chatMessages.innerHTML="";
-
-snap.forEach(m=>{
-
-let msg=m.val();
-chatMessages.innerHTML+=`
-<div><b>${msg.from===myUID?"me":"them"}:</b>
-${msg.text}</div>`;
-});
-
-chatMessages.scrollTop=9999;
-
-});
-
-}
-
-sendBtn.onclick=()=>{
-
-let text=chatInput.value.trim();
-if(!text||!chatTarget) return;
-
-push(ref(db,"chats/"+chatID(myUID,chatTarget)),{
-from:myUID,
-text:text,
-time:Date.now()
-});
-
-chatInput.value="";
-
-};
-
-////////////////////////////////////////////////////////
-// USER MENU
-////////////////////////////////////////////////////////
-
-let selectedUID=null;
-let selectedName=null;
-
-dmBtn.onclick=()=>{
-
-userMenu.style.display="none";
-openChat(selectedUID,selectedName);
-
-};
-
-////////////////////////////////////////////////////////
-// RADAR
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+// USERS RADAR
+/////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
 
-for(let id in markers){
-map.removeLayer(markers[id]);
+for(let id in userMarkers){
+map.removeLayer(userMarkers[id]);
 }
-markers={};
+userMarkers={};
 
 snap.forEach(c=>{
 
@@ -372,37 +168,69 @@ if(!u.lat) return;
 
 let icon=L.divIcon({
 className:"",
-html:`
+html:`<div style="text-align:center">
 <img src="${u.avatar||'avatar/avatar1.png'}"
 style="width:50px;height:50px;border-radius:50%;">
 <br>${u.username||"user"}
-`
+</div>`
 });
 
-let marker=L.marker([u.lat,u.lng],{icon})
-.addTo(map);
-
-marker.on("click",()=>{
-
-if(c.key===myUID) return;
-
-selectedUID=c.key;
-selectedName=u.username;
-
-menuName.innerText=u.username;
-userMenu.style.display="block";
-
-});
-
-markers[c.key]=marker;
+userMarkers[c.key]=L.marker([u.lat,u.lng],{icon}).addTo(map);
 
 });
 
 });
 
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+// MOMENTS
+/////////////////////////////////////////////////////
+
+window.openMoment=()=>{
+if(!myUID) return alert("login dulu");
+momentBox.style.display="block";
+};
+
+window.sendMoment=()=>{
+
+let text=momentText.value.trim();
+if(!text) return;
+
+push(ref(db,"moments"),{
+uid:myUID,
+text,
+lat:myLat,
+lng:myLng,
+time:Date.now()
+});
+
+momentText.value="";
+momentBox.style.display="none";
+
+};
+
+onValue(ref(db,"moments"),snap=>{
+
+for(let id in momentMarkers){
+map.removeLayer(momentMarkers[id]);
+}
+momentMarkers={};
+
+snap.forEach(c=>{
+
+let m=c.val();
+if(!m.lat) return;
+
+momentMarkers[c.key]=L.marker([m.lat,m.lng])
+.addTo(map)
+.bindPopup(`📸 ${m.text}`);
+
+});
+
+});
+
+/////////////////////////////////////////////////////
 // AUTH
-////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 
 onAuthStateChanged(auth,user=>{
 
@@ -412,26 +240,18 @@ myUID=user.uid;
 
 loginBox.innerHTML=`
 Logged in: ${user.email}<br>
-<button id="logout">Logout</button>
+<button onclick="signOut(auth)">Logout</button>
 `;
 
-logout.onclick=()=>{
-update(ref(db,"users/"+myUID),{status:"offline"});
-signOut(auth);
-};
-
-ensureProfile(myUID);
 startGPS(myUID);
 
 }else{
-
+myUID=null;
 showLogin();
-
 }
 
 });
 
 </script>
-
 </body>
 </html>
