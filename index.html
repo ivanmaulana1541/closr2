@@ -174,12 +174,10 @@ border:3px solid #ff7b00;">
 //////////////////////////////////////////////////////
 
 function ensureUserProfile(uid){
-
 update(ref(db,"users/"+uid),{
 username:"user_"+uid.slice(0,4),
 avatar:"avatar/avatar1.png"
 });
-
 }
 
 function showAvatarPicker(uid){
