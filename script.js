@@ -1,6 +1,6 @@
-////////////////////////////////////////////////////////
-// FIREBASE IMPORT
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
+// FIREBASE
+////////////////////////////////////////////////
 
 import { initializeApp }
 from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -18,12 +18,10 @@ getDatabase,
 ref,
 update,
 push,
+set,
+remove,
 onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
-
-////////////////////////////////////////////////////////
-// FIREBASE CONFIG — PAKAI PUNYA KAMU
-////////////////////////////////////////////////////////
 
 const firebaseConfig = {
 apiKey: "AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
@@ -35,29 +33,29 @@ messagingSenderId: "352431132160",
 appId: "1:352431132160:web:6125a40a3853d1fd6592e5"
 };
 
-const appFirebase = initializeApp(firebaseConfig);
-const auth = getAuth(appFirebase);
-const db = getDatabase(appFirebase);
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getDatabase(app);
 
-////////////////////////////////////////////////////////
-// MAP INIT
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
+// MAP
+////////////////////////////////////////////////
 
-let map = L.map("map").setView([-6.2,106.8],15);
+let map=L.map("map").setView([-6.2,106.8],15);
 
 L.tileLayer(
 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
 ).addTo(map);
 
-let markers = {};
-let myUID = null;
-let myLat, myLng;
+let myUID=null;
+let myLat,myLng;
+let markers={};
 
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
 // LOGIN UI
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
 
-const loginBox = document.getElementById("loginBox");
+const loginBox=document.getElementById("loginBox");
 
 function showLogin(){
 
@@ -81,9 +79,39 @@ signInWithEmailAndPassword(auth,email.value,pass.value)
 
 }
 
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
+// USERNAME + AVATAR SETUP
+////////////////////////////////////////////////
+
+window.saveUsername=()=>{
+
+let name=uname.value.trim();
+if(!name) return;
+
+update(ref(db,"users/"+myUID),{username:name});
+
+usernameBox.style.display="none";
+avatarBox.style.display="block";
+
+};
+
+document.querySelectorAll(".pick").forEach(img=>{
+
+img.onclick=()=>{
+
+update(ref(db,"users/"+myUID),{
+avatar:img.src
+});
+
+avatarBox.style.display="none";
+
+};
+
+});
+
+////////////////////////////////////////////////
 // GPS
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
 
 function startGPS(){
 
@@ -107,9 +135,9 @@ window.centerMe=()=>{
 if(myLat) map.setView([myLat,myLng],17);
 };
 
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
 // MOMENT
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
 
 window.openMoment=()=>{
 momentBox.style.display="block";
@@ -132,9 +160,117 @@ momentBox.style.display="none";
 
 };
 
-////////////////////////////////////////////////////////
-// RADAR USERS
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
+// FRIEND SYSTEM
+////////////////////////////////////////////////
+
+function sendFriend(uid){
+set(ref(db,"friendReq/"+uid+"/"+myUID),true);
+alert("Request sent!");
+}
+
+function watchRequests(){
+
+onValue(ref(db,"friendReq/"+myUID),snap=>{
+
+snap.forEach(r=>{
+
+let from=r.key;
+
+if(confirm("Friend request from "+from+" ?")){
+
+update(ref(db,"friends/"+myUID+"/"+from),true);
+update(ref(db,"friends/"+from+"/"+myUID),true);
+
+remove(ref(db,"friendReq/"+myUID+"/"+from));
+
+}
+
+});
+
+});
+
+}
+
+////////////////////////////////////////////////
+// INTERACTION POPUP
+////////////////////////////////////////////////
+
+function showInteraction(uid,name){
+
+interactionBox.style.display="block";
+
+interactionBox.innerHTML=`
+<b>${name}</b><br><br>
+<button onclick="openDM('${uid}','${name}')">DM</button>
+<button onclick="sendFriend('${uid}')">Add Friend</button>
+<button onclick="interactionBox.style.display='none'">Close</button>
+`;
+
+}
+
+////////////////////////////////////////////////
+// DM SYSTEM
+////////////////////////////////////////////////
+
+let chatUID=null;
+
+window.openDM=(uid,name)=>{
+
+chatUID=uid;
+
+chatTitle.innerText="Chat: "+name;
+chatBox.style.display="block";
+
+listenDM();
+
+};
+
+window.closeChat=()=>{
+chatBox.style.display="none";
+};
+
+window.sendDM=()=>{
+
+let msg=chatInput.value.trim();
+if(!msg) return;
+
+let room=[myUID,chatUID].sort().join("_");
+
+push(ref(db,"dm/"+room),{
+from:myUID,
+text:msg
+});
+
+chatInput.value="";
+
+};
+
+function listenDM(){
+
+let room=[myUID,chatUID].sort().join("_");
+
+onValue(ref(db,"dm/"+room),snap=>{
+
+chatLog.innerHTML="";
+
+snap.forEach(m=>{
+
+let d=m.val();
+
+chatLog.innerHTML+=
+(d.from===myUID?"me: ":"them: ")
++d.text+"<br>";
+
+});
+
+});
+
+}
+
+////////////////////////////////////////////////
+// RADAR
+////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
 
@@ -151,22 +287,28 @@ if(!u.lat) return;
 let icon=L.divIcon({
 className:"",
 html:`
-<img src="avatar/avatar1.png"
+<img src="${u.avatar||'avatar/avatar1.png'}"
 style="width:50px;height:50px;border-radius:50%;">
 <br>${u.username||"user"}
 `
 });
 
-markers[c.key]=L.marker([u.lat,u.lng],{icon})
-.addTo(map);
+let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
+
+m.on("click",()=>{
+if(c.key!==myUID)
+showInteraction(c.key,u.username||"user");
+});
+
+markers[c.key]=m;
 
 });
 
 });
 
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
 // AUTH
-////////////////////////////////////////////////////////
+////////////////////////////////////////////////
 
 onAuthStateChanged(auth,user=>{
 
@@ -175,18 +317,28 @@ if(user){
 myUID=user.uid;
 
 loginBox.innerHTML=`
-Logged in: ${user.email}<br><br>
+Logged in: ${user.email}<br>
 <button id="logout">Logout</button>
 `;
 
 logout.onclick=()=>signOut(auth);
 
 startGPS();
+watchRequests();
 
-}else{
+// cek profile
+onValue(ref(db,"users/"+myUID),snap=>{
 
-showLogin();
+let d=snap.val()||{};
 
-}
+if(!d.username)
+usernameBox.style.display="block";
+
+else if(!d.avatar)
+avatarBox.style.display="block";
+
+},{onlyOnce:true});
+
+}else showLogin();
 
 });
