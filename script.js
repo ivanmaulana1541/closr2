@@ -272,3 +272,53 @@ startGPS();
 }else showLogin();
 
 });
+
+//////////////////////////////////////////////////////
+// FLOATING INTERACTION POPUP (near marker)
+//////////////////////////////////////////////////////
+
+let interactionBox = null;
+
+function showInteractionPopup(latlng, uid, username) {
+
+    // hapus popup lama
+    if (interactionBox) {
+        map.removeLayer(interactionBox);
+        interactionBox = null;
+    }
+
+    const html = `
+        <div style="
+            background:white;
+            padding:8px;
+            border-radius:8px;
+            box-shadow:0 4px 10px rgba(0,0,0,.3);
+            text-align:center;
+        ">
+            <b>${username}</b><br><br>
+
+            <button onclick="openDM('${uid}')">💬 DM</button><br>
+            <button onclick="openProfile('${uid}')">👁 Profile</button><br>
+            <button onclick="sendFriendRequest('${uid}')">➕ Add Friend</button><br><br>
+
+            <button onclick="closeInteraction()">Close</button>
+        </div>
+    `;
+
+    interactionBox = L.popup({
+        closeButton: false,
+        autoClose: false,
+        closeOnClick: false,
+        offset: [0, -20]
+    })
+    .setLatLng(latlng)
+    .setContent(html)
+    .openOn(map);
+}
+
+function closeInteraction() {
+    if (interactionBox) {
+        map.closePopup(interactionBox);
+        interactionBox = null;
+    }
+}
