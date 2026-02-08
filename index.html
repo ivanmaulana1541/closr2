@@ -3,14 +3,18 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr — social map ultimate</title>
+<title>closr — stable base</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
 
-body{margin:0;font-family:Arial;background:#eef1f7;}
+body{
+margin:0;
+font-family:Arial;
+background:#eef1f7;
+}
 
 header{
 background:#4a6cff;
@@ -19,7 +23,9 @@ padding:12px;
 text-align:center;
 }
 
-#map{height:60vh;}
+#map{
+height:65vh;
+}
 
 .card{
 background:white;
@@ -39,7 +45,9 @@ cursor:pointer;
 }
 
 input,textarea{
-padding:8px;margin:4px;width:95%;
+padding:8px;
+margin:4px;
+width:90%;
 }
 
 .popup{
@@ -53,27 +61,18 @@ border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
 display:none;
 z-index:999;
-max-width:90%;
 }
 
-.timeline{
-position:absolute;
-bottom:0;
-left:0;
-right:0;
-max-height:40%;
-background:white;
-overflow:auto;
-padding:10px;
-border-top:2px solid #ddd;
-display:none;
-z-index:998;
+.pick{
+width:60px;
+border-radius:50%;
+cursor:pointer;
+margin:4px;
+border:3px solid transparent;
 }
 
-img.preview{
-max-width:100%;
-border-radius:8px;
-margin-top:6px;
+.pick:hover{
+border-color:#4a6cff;
 }
 
 </style>
@@ -81,32 +80,40 @@ margin-top:6px;
 
 <body>
 
-<header>📍 closr — social map</header>
+<header>📍 closr — stable base</header>
 
 <div id="loginBox" class="card"></div>
 
 <button onclick="openMoment()">📸 Share Moment</button>
-<button onclick="toggleTimeline()">📰 Timeline</button>
+<button onclick="autoCenter()">🎯 Center</button>
 
 <div id="map"></div>
 
-<!-- moment popup -->
+<!-- MOMENT POPUP -->
 <div id="momentBox" class="popup">
 <b>Share moment</b><br>
 <textarea id="momentText"></textarea><br>
-<input type="file" id="photo"><br>
-<label>
-<input type="checkbox" id="friendOnly">
-Friends only
-</label><br>
 <button onclick="sendMoment()">Post</button>
 <button onclick="momentBox.style.display='none'">Close</button>
 </div>
 
-<!-- profile popup -->
-<div id="profileBox" class="popup"></div>
+<!-- USERNAME POPUP -->
+<div id="usernameBox" class="popup">
+<b>Masukkan username:</b><br>
+<input id="uname"><br>
+<button onclick="saveUsername()">Save</button>
+</div>
 
-<div id="timeline" class="timeline"></div>
+<!-- AVATAR PICKER -->
+<div id="avatarPicker" class="popup">
+<b>Pilih avatar:</b><br><br>
+
+<img src="avatar/avatar1.png" class="pick">
+<img src="avatar/avatar2.png" class="pick">
+<img src="avatar/avatar3.png" class="pick">
+<img src="avatar/avatar4.png" class="pick">
+
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -129,19 +136,18 @@ import {
 getDatabase,
 ref,
 update,
-set,
 push,
 onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
-const firebaseConfig={
-apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
-authDomain:"closr-c35df.firebaseapp.com",
-databaseURL:"https://closr-c35df-default-rtdb.firebaseio.com",
-projectId:"closr-c35df",
-storageBucket:"closr-c35df.firebasestorage.app",
-messagingSenderId:"352431132160",
-appId:"1:352431132160:web:6125a40a3853d1fd6592e5"
+const firebaseConfig = {
+apiKey: "AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
+authDomain: "closr-c35df.firebaseapp.com",
+databaseURL: "https://closr-c35df-default-rtdb.firebaseio.com",
+projectId: "closr-c35df",
+storageBucket: "closr-c35df.firebasestorage.app",
+messagingSenderId: "352431132160",
+appId: "1:352431132160:web:6125a40a3853d1fd6592e5"
 };
 
 const appFirebase=initializeApp(firebaseConfig);
@@ -157,7 +163,6 @@ L.tileLayer(
 ).addTo(map);
 
 let userMarkers={};
-let momentMarkers={};
 
 let myUID=null;
 let myLat,myLng;
@@ -183,6 +188,54 @@ log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value)
 .catch(e=>alert(e.message));
 }
 
+//////////////////////// PROFILE SETUP ////////////////////////
+
+function ensureProfile(uid){
+
+onValue(ref(db,"users/"+uid),snap=>{
+
+let data=snap.val()||{};
+
+if(!data.username)
+usernameBox.style.display="block";
+
+if(!data.avatar)
+showAvatarPicker(uid);
+
+},{onlyOnce:true});
+}
+
+window.saveUsername=()=>{
+
+let name=uname.value.trim();
+if(!name) return;
+
+update(ref(db,"users/"+myUID),{
+username:name
+});
+
+usernameBox.style.display="none";
+};
+
+function showAvatarPicker(uid){
+
+avatarPicker.style.display="block";
+
+document.querySelectorAll(".pick").forEach(img=>{
+
+img.onclick=()=>{
+
+update(ref(db,"users/"+uid),{
+avatar:img.getAttribute("src")
+});
+
+avatarPicker.style.display="none";
+
+};
+
+});
+}
+
 //////////////////////// GPS ////////////////////////
 
 function startGPS(){
@@ -193,13 +246,22 @@ myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
 update(ref(db,"users/"+myUID),{
-lat:myLat,lng:myLng,status:"online"
+lat:myLat,
+lng:myLng,
+status:"online"
 });
 
 map.setView([myLat,myLng],16);
 
 });
 }
+
+window.autoCenter=()=>{
+
+if(myLat && myLng)
+map.setView([myLat,myLng],16);
+
+};
 
 //////////////////////// MOMENT ////////////////////////
 
@@ -212,29 +274,15 @@ window.sendMoment=()=>{
 let text=momentText.value.trim();
 if(!text) return;
 
-let reader=new FileReader();
-
-reader.onload=()=>{
-
 push(ref(db,"moments/"+myUID),{
-text,
-photo:reader.result||"",
-lat:myLat,
-lng:myLng,
+text:text,
 time:Date.now(),
-friendsOnly:friendOnly.checked
+lat:myLat,
+lng:myLng
 });
 
-};
-
-if(photo.files[0]) reader.readAsDataURL(photo.files[0]);
-else reader.onload();
-
 momentText.value="";
-photo.value="";
-friendOnly.checked=false;
 momentBox.style.display="none";
-
 };
 
 //////////////////////// RADAR ////////////////////////
@@ -253,121 +301,18 @@ if(!u.lat) return;
 
 let icon=L.divIcon({
 className:"",
-html:`<img src="${u.avatar||'avatar/avatar1.png'}"
-style="width:50px;border-radius:50%;"><br>${u.username||"user"}`
+html:`
+<img src="${u.avatar||'avatar/avatar1.png'}"
+style="width:50px;border-radius:50%;">
+<br>${u.username||"user"}
+`
 });
 
-let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
-
-m.on("click",()=>openProfile(c.key));
-
-userMarkers[c.key]=m;
+userMarkers[c.key]=L.marker([u.lat,u.lng],{icon})
+.addTo(map);
 
 });
-
 });
-
-//////////////////////// MOMENT MARKERS ////////////////////////
-
-onValue(ref(db,"moments"),snap=>{
-
-for(let id in momentMarkers)
-map.removeLayer(momentMarkers[id]);
-
-momentMarkers={};
-
-snap.forEach(userMoments=>{
-
-userMoments.forEach(m=>{
-
-let d=m.val();
-
-if(d.friendsOnly && userMoments.key!==myUID) return;
-
-let marker=L.marker([d.lat,d.lng])
-.addTo(map)
-.bindPopup(`
-📍 ${d.text}
-${d.photo?`<img class="preview" src="${d.photo}">`:""}
-`);
-
-momentMarkers[m.key]=marker;
-
-});
-
-});
-
-});
-
-//////////////////////// PROFILE ////////////////////////
-
-function openProfile(uid){
-
-onValue(ref(db,"moments/"+uid),snap=>{
-
-let html="<b>Profile</b><br><br>";
-
-snap.forEach(m=>{
-
-let d=m.val();
-
-html+=`
-📍 ${d.text}<br>
-${d.photo?`<img class="preview" src="${d.photo}">`:""}
-<hr>
-`;
-
-});
-
-html+=`<button onclick="profileBox.style.display='none'">Close</button>`;
-
-profileBox.innerHTML=html;
-profileBox.style.display="block";
-
-},{onlyOnce:true});
-}
-
-//////////////////////// TIMELINE ////////////////////////
-
-window.toggleTimeline=()=>{
-
-timeline.style.display=
-timeline.style.display==="none"?"block":"none";
-
-};
-
-function loadTimeline(){
-
-onValue(ref(db,"moments"),snap=>{
-
-let feed=[];
-
-snap.forEach(userMoments=>{
-
-userMoments.forEach(m=>{
-feed.push(m.val());
-});
-
-});
-
-feed.sort((a,b)=>b.time-a.time);
-
-let html="<b>Timeline</b><br>";
-
-feed.forEach(f=>{
-
-html+=`
-📍 ${f.text}<br>
-${f.photo?`<img class="preview" src="${f.photo}">`:""}
-<hr>
-`;
-
-});
-
-timeline.innerHTML=html;
-
-});
-}
 
 //////////////////////// AUTH ////////////////////////
 
@@ -378,7 +323,7 @@ if(user){
 myUID=user.uid;
 
 loginBox.innerHTML=`
-Logged in<br>
+Logged in: ${user.email}<br>
 <button id="logout">Logout</button>
 `;
 
@@ -388,10 +333,13 @@ signOut(auth);
 };
 
 startGPS();
-loadTimeline();
+ensureProfile(myUID);
 
-}else showLogin();
+}else{
 
+showLogin();
+
+}
 });
 
 </script>
