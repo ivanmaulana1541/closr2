@@ -284,6 +284,89 @@ markers[c.key]=m;
 });
 
 ////////////////////////////////////////////////////////
+// PROFILE VIEWER UI
+////////////////////////////////////////////////////////
+
+const profileBox=document.createElement("div");
+profileBox.style.position="absolute";
+profileBox.style.top="80px";
+profileBox.style.left="50%";
+profileBox.style.transform="translateX(-50%)";
+profileBox.style.background="white";
+profileBox.style.padding="12px";
+profileBox.style.borderRadius="10px";
+profileBox.style.boxShadow="0 4px 10px rgba(0,0,0,.2)";
+profileBox.style.zIndex=999;
+profileBox.style.display="none";
+
+document.body.appendChild(profileBox);
+
+function closeProfile(){
+profileBox.style.display="none";
+}
+
+////////////////////////////////////////////////////////
+// OPEN PROFILE
+////////////////////////////////////////////////////////
+
+function openProfile(targetUID,name){
+
+onValue(
+ref(db,"friends/"+myUID+"/"+targetUID),
+snap=>{
+
+profileBox.style.display="block";
+
+if(!snap.exists()){
+
+profileBox.innerHTML=`
+<b>${name}</b><br><br>
+🔒 Private account<br><br>
+<button onclick="(${closeProfile.toString()})()">Close</button>
+`;
+
+return;
+
+}
+
+////////////////////////////////////////////////
+// FRIEND → LOAD PROFILE
+////////////////////////////////////////////////
+
+onValue(ref(db,"users/"+targetUID),uSnap=>{
+
+let u=uSnap.val()||{};
+
+onValue(ref(db,"moments/"+targetUID),mSnap=>{
+
+let html=`<b>${u.username||name}</b><br><br>`;
+
+if(!mSnap.exists()){
+
+html+="No moments yet<br>";
+
+}else{
+
+mSnap.forEach(m=>{
+let data=m.val();
+html+=`📍 ${data.text}<br>`;
+});
+
+}
+
+html+=`<br><button onclick="(${closeProfile.toString()})()">Close</button>`;
+
+profileBox.innerHTML=html;
+
+},{onlyOnce:true});
+
+},{onlyOnce:true});
+
+},{onlyOnce:true});
+
+}  
+  
+////////////////////////////////////////////////////////
 // AUTH
 ////////////////////////////////////////////////////////
 
