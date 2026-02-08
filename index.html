@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr2 — social radar + DM + moments</title>
+<title>closr2 — social radar + tagged moments</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -38,6 +38,13 @@ background:white;padding:12px;
 border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
 display:none;z-index:999;
+max-width:90%;
+}
+
+#placeResults div{
+padding:4px;
+cursor:pointer;
+border-bottom:1px solid #eee;
 }
 
 </style>
@@ -45,7 +52,7 @@ display:none;z-index:999;
 
 <body>
 
-<header>📍 closr2 — social radar + moments</header>
+<header>📍 closr2 — social radar + tagged moments</header>
 
 <div id="loginBox" class="card"></div>
 
@@ -53,11 +60,19 @@ display:none;z-index:999;
 
 <div id="map"></div>
 
+<!-- MOMENT POPUP -->
 <div id="momentBox" class="popup">
+
 <b>Share moment:</b><br>
 <textarea id="momentText"></textarea><br>
+
+📍 Tag lokasi:<br>
+<input id="placeSearch" placeholder="Cari cafe/resto…">
+<div id="placeResults"></div>
+
 <button onclick="sendMoment()">Post</button>
 <button onclick="momentBox.style.display='none'">Close</button>
+
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -90,7 +105,7 @@ onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
 const firebaseConfig={
-apiKey:"AIza...",
+apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
 authDomain:"closr-c35df.firebaseapp.com",
 databaseURL:"https://closr-c35df-default-rtdb.firebaseio.com",
 projectId:"closr-c35df"
@@ -116,7 +131,7 @@ let myLat,myLng;
 let interactionPopup=null;
 
 ////////////////////////////////////////////////////////
-// LOGIN
+// LOGIN UI
 ////////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
@@ -144,8 +159,33 @@ signInWithEmailAndPassword(auth,email.value,pass.value)
 }
 
 ////////////////////////////////////////////////////////
-// MOMENTS
+// GPS TRACK
 ////////////////////////////////////////////////////////
+
+function startGPS(){
+
+navigator.geolocation.watchPosition(pos=>{
+
+myLat=pos.coords.latitude;
+myLng=pos.coords.longitude;
+
+update(ref(db,"users/"+myUID),{
+lat:myLat,
+lng:myLng,
+status:"online"
+});
+
+map.setView([myLat,myLng],16);
+
+});
+
+}
+
+////////////////////////////////////////////////////////
+// MOMENT + LOCATION TAGGING
+////////////////////////////////////////////////////////
+
+let selectedPlace=null;
 
 window.openMoment=()=>{
 momentBox.style.display="block";
@@ -156,15 +196,70 @@ window.sendMoment=()=>{
 let text=momentText.value.trim();
 if(!text || !myUID) return;
 
+let lat=myLat;
+let lng=myLng;
+let place="";
+
+if(selectedPlace){
+lat=selectedPlace.lat;
+lng=selectedPlace.lng;
+place=selectedPlace.name;
+}
+
 push(ref(db,"moments/"+myUID),{
 text,
-lat:myLat,
-lng:myLng,
+lat,
+lng,
+place,
 time:Date.now()
 });
 
 momentText.value="";
+placeSearch.value="";
+selectedPlace=null;
+
 momentBox.style.display="none";
+
+};
+
+placeSearch.oninput=async()=>{
+
+let q=placeSearch.value.trim();
+
+if(q.length<3){
+placeResults.innerHTML="";
+return;
+}
+
+let res=await fetch(
+`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`
+);
+
+let data=await res.json();
+
+placeResults.innerHTML="";
+
+data.slice(0,5).forEach(p=>{
+
+let div=document.createElement("div");
+div.innerHTML="📍 "+p.display_name;
+
+div.onclick=()=>{
+
+selectedPlace={
+name:p.display_name,
+lat:parseFloat(p.lat),
+lng:parseFloat(p.lon)
+};
+
+placeSearch.value=p.display_name;
+placeResults.innerHTML="";
+
+};
+
+placeResults.appendChild(div);
+
+});
 
 };
 
@@ -207,28 +302,7 @@ remove(ref(db,"friendRequests/"+myUID+"/"+from));
 }
 
 ////////////////////////////////////////////////////////
-// GPS
-////////////////////////////////////////////////////////
-
-function startGPS(){
-
-navigator.geolocation.watchPosition(pos=>{
-
-myLat=pos.coords.latitude;
-myLng=pos.coords.longitude;
-
-update(ref(db,"users/"+myUID),{
-lat:myLat,lng:myLng,status:"online"
-});
-
-map.setView([myLat,myLng],16);
-
-});
-
-}
-
-////////////////////////////////////////////////////////
-// INTERACTION POPUP
+// USER RADAR
 ////////////////////////////////////////////////////////
 
 function showInteraction(uid,name){
@@ -236,7 +310,6 @@ function showInteraction(uid,name){
 if(interactionPopup) interactionPopup.remove();
 
 interactionPopup=document.createElement("div");
-
 interactionPopup.className="popup";
 interactionPopup.style.display="block";
 
@@ -251,10 +324,6 @@ document.body.appendChild(interactionPopup);
 }
 
 window.sendFriendRequest=sendFriendRequest;
-
-////////////////////////////////////////////////////////
-// RADAR
-////////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
 
@@ -325,10 +394,7 @@ let feed=[];
 snap.forEach(user=>{
 
 user.forEach(m=>{
-
-let d=m.val();
-feed.push(d);
-
+feed.push(m.val());
 });
 
 });
@@ -339,7 +405,9 @@ feed.forEach(f=>{
 
 timelineBox.innerHTML+=`
 📍 ${f.text}<br>
-<small>${new Date(f.time).toLocaleString()}</small><hr>
+${f.place?`<small>${f.place}</small><br>`:""}
+<small>${new Date(f.time).toLocaleString()}</small>
+<hr>
 `;
 
 });
