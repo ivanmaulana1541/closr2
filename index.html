@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>closr2 — CARTO avatar GPS</title>
+<title>closr2 — social radar</title>
 
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -21,11 +21,27 @@ background:#4a6cff;
 color:white;
 padding:12px;
 text-align:center;
-font-size:18px;
 }
 
 #map{
-height:90vh;
+height:80vh;
+}
+
+.card{
+background:white;
+padding:10px;
+}
+
+input,button{
+padding:8px;
+margin:5px;
+}
+
+.usernameLabel{
+background:white;
+padding:2px 6px;
+border-radius:6px;
+font-size:12px;
 }
 
 </style>
@@ -34,85 +50,189 @@ height:90vh;
 
 <body>
 
-<header>📍 closr2 — CARTO avatar radar</header>
+<header>📍 closr2 — social radar</header>
 
+<div class="card" id="login"></div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script>
+<script type="module">
 
 //////////////////////////////////////////////////////
-// MAP INIT — CARTO STYLE
+// FIREBASE IMPORT
+//////////////////////////////////////////////////////
+
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+
+import {
+getAuth,
+createUserWithEmailAndPassword,
+signInWithEmailAndPassword,
+onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+
+import {
+getDatabase,
+ref,
+set,
+onValue
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+
+//////////////////////////////////////////////////////
+// FIREBASE CONFIG — PUNYA KAMU
+//////////////////////////////////////////////////////
+
+const firebaseConfig={
+apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
+authDomain:"closr-c35df.firebaseapp.com",
+databaseURL:"https://closr-c35df-default-rtdb.firebaseio.com",
+projectId:"closr-c35df",
+storageBucket:"closr-c35df.firebasestorage.app",
+messagingSenderId:"352431132160",
+appId:"1:352431132160:web:6125a40a3853d1fd6592e5"
+};
+
+const appFirebase=initializeApp(firebaseConfig);
+const auth=getAuth(appFirebase);
+const db=getDatabase(appFirebase);
+
+//////////////////////////////////////////////////////
+// MAP INIT
 //////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
 L.tileLayer(
 "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-{
-attribution:"© CARTO"
-}
+{attribution:"© CARTO"}
 ).addTo(map);
 
 //////////////////////////////////////////////////////
-// AVATAR ICON — LOCAL FILE
+// LOGIN UI
 //////////////////////////////////////////////////////
 
-let avatarIcon=L.divIcon({
+const loginBox=document.getElementById("login");
+
+function showLogin(){
+
+loginBox.innerHTML=`
+<input id="email" placeholder="email">
+<input id="pass" type="password" placeholder="password">
+<input id="username" placeholder="username publik">
+<button id="reg">Register</button>
+<button id="log">Login</button>
+`;
+
+reg.onclick=()=>{
+
+createUserWithEmailAndPassword(
+auth,email.value,pass.value
+).then(user=>{
+
+set(ref(db,"users/"+user.user.uid),{
+username:username.value,
+avatar:"avatar/avatar1.png"
+});
+
+});
+
+};
+
+log.onclick=()=>{
+signInWithEmailAndPassword(auth,email.value,pass.value);
+};
+
+}
+
+//////////////////////////////////////////////////////
+// USER MARKERS
+//////////////////////////////////////////////////////
+
+let markers={};
+
+function makeIcon(username,avatar){
+
+return L.divIcon({
 className:"",
 html:`
-<img src="avatar/avatar1.png"
-style="
-width:60px;
-height:60px;
-border-radius:50%;
-border:3px solid #ff7b00;">
+<div style="text-align:center;">
+<img src="${avatar}"
+style="width:40px;height:40px;border-radius:50%;">
+<div class="usernameLabel">${username}</div>
+</div>
 `
 });
 
+}
+
+function listenUsers(){
+
+onValue(ref(db,"users"),snap=>{
+
+for(let k in markers){
+map.removeLayer(markers[k]);
+}
+markers={};
+
+snap.forEach(c=>{
+
+let u=c.val();
+
+if(!u.lat) return;
+
+markers[c.key]=L.marker(
+[u.lat,u.lng],
+{icon:makeIcon(u.username,u.avatar)}
+).addTo(map);
+
+});
+
+});
+
+}
+
 //////////////////////////////////////////////////////
-// GPS TRACKING
+// GPS SYNC
 //////////////////////////////////////////////////////
 
-let myMarker=null;
+function startGPS(){
 
-navigator.geolocation.watchPosition(
-
-pos=>{
+navigator.geolocation.watchPosition(pos=>{
 
 let lat=pos.coords.latitude;
 let lng=pos.coords.longitude;
 
-// fokus map ke posisi kamu
-map.setView([lat,lng],16);
+set(ref(db,"users/"+auth.currentUser.uid),{
+lat,lng,
+username:"online",
+avatar:"avatar/avatar1.png"
+});
 
-// buat marker pertama kali
-if(!myMarker){
+});
 
-myMarker=L.marker([lat,lng],{icon:avatarIcon})
-.addTo(map)
-.bindPopup("Ini kamu 😎")
-.openPopup();
+}
+
+//////////////////////////////////////////////////////
+// AUTH STATE
+//////////////////////////////////////////////////////
+
+onAuthStateChanged(auth,user=>{
+
+if(user){
+
+loginBox.innerHTML="Logged in ✔";
+startGPS();
+listenUsers();
 
 }else{
 
-// update posisi marker
-myMarker.setLatLng([lat,lng]);
+showLogin();
 
 }
 
-},
-
-err=>{
-alert("GPS tidak diizinkan atau gagal.");
-},
-
-{
-enableHighAccuracy:true
-}
-
-);
+});
 
 </script>
 
