@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>📍 closr — social map</title>
+<title>closr — social map</title>
 
 <link rel="stylesheet" href="style.css">
 
@@ -19,47 +19,29 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <div id="loginBox" class="card"></div>
 
 <button onclick="openMoment()">📸 Share Moment</button>
+<button onclick="toggleTimeline()">📰 Timeline</button>
 <button onclick="centerMe()">🎯 Center</button>
 
 <div id="map"></div>
 
-<!-- USERNAME POPUP -->
-<div id="usernameBox" class="popup">
-<b>Choose username:</b><br>
-<input id="uname"><br>
-<button onclick="saveUsername()">Save</button>
-</div>
-
-<!-- AVATAR PICKER -->
-<div id="avatarBox" class="popup">
-<b>Select avatar:</b><br><br>
-
-<img src="avatar/avatar1.png" class="pick">
-<img src="avatar/avatar2.png" class="pick">
-<img src="avatar/avatar3.png" class="pick">
-<img src="avatar/avatar4.png" class="pick">
-
-</div>
-
 <!-- MOMENT -->
 <div id="momentBox" class="popup">
-<b>Share moment:</b><br>
+<b>Share moment</b><br>
 <textarea id="momentText"></textarea><br>
+<input type="file" id="momentPhoto"><br>
+<label>
+<input type="checkbox" id="friendOnly">
+Friends only
+</label><br>
 <button onclick="sendMoment()">Post</button>
 <button onclick="momentBox.style.display='none'">Close</button>
 </div>
 
-<!-- INTERACTION -->
-<div id="interactionBox" class="popup"></div>
+<!-- PROFILE -->
+<div id="profileBox" class="popup"></div>
 
-<!-- DM CHAT -->
-<div id="chatBox" class="popup">
-<b id="chatTitle"></b><br>
-<div id="chatLog"></div>
-<input id="chatInput"><br>
-<button onclick="sendDM()">Send</button>
-<button onclick="closeChat()">Close</button>
-</div>
+<!-- TIMELINE -->
+<div id="timelineBox" class="timeline"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="script.js"></script>
