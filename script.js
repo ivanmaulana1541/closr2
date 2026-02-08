@@ -112,8 +112,10 @@ let photoURL="";
 let file=momentPhoto?.files?.[0];
 
 if(file){
+
 let fileRef=sRef(storage,"moments/"+myUID+"/"+Date.now());
 await uploadBytes(fileRef,file);
+
 photoURL=await getDownloadURL(fileRef);
 }
 
@@ -160,8 +162,16 @@ style="width:50px;height:50px;border-radius:50%;border:3px solid #E53935;">
 
 let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
 
-userMarkers[c.key]=m;
+m.on("click",()=>{
+if(c.key!==myUID)
+showInteractionPopup(
+m.getLatLng(),
+c.key,
+u.username||"user"
+);
+});
 
+userMarkers[c.key]=m;
 });
 });
 
@@ -190,11 +200,84 @@ momentMarkers[m.key]=mk;
 });
 });
 
+//////////////// PROFILE //////////////////
+
+window.openProfile=(uid)=>{
+
+onValue(ref(db,"moments/"+uid),snap=>{
+
+let html="<b>Profile</b><br><br>";
+
+snap.forEach(m=>{
+let d=m.val();
+
+html+=`
+📍 ${d.text}<br>
+${d.photo?`<img class="preview" src="${d.photo}">`:""}
+
+<hr>`;
+});
+
+html+=`<button onclick="profileBox.style.display='none'">Close</button>`;
+
+profileBox.innerHTML=html;
+profileBox.style.display="block";
+
+},{onlyOnce:true});
+};
+
 //////////////// TIMELINE //////////////////
 
 window.toggleTimeline=()=>{
 timelineBox.style.display=
 timelineBox.style.display==="none"?"block":"none";
+};
+
+onValue(ref(db,"moments"),snap=>{
+
+let feed=[];
+
+snap.forEach(user=>{
+user.forEach(m=>feed.push(m.val()));
+});
+
+feed.sort((a,b)=>b.time-a.time);
+
+let html="<b>Timeline</b><br><br>";
+
+feed.forEach(f=>{
+html+=`
+📍 ${f.text}<br>
+${f.photo?`<img class="preview" src="${f.photo}">`:""}
+
+<hr>`;
+});
+
+timelineBox.innerHTML=html;
+});
+
+//////////////// INTERACTION POPUP //////////////////
+
+let interactionBox=null;
+
+window.showInteractionPopup=(latlng,uid,name)=>{
+
+if(interactionBox)
+map.closePopup(interactionBox);
+
+interactionBox=L.popup({
+closeButton:false,
+autoClose:false,
+closeOnClick:false
+})
+.setLatLng(latlng)
+.setContent(`<b>${name}</b><br><br> <button onclick="openProfile('${uid}')">Profile</button><br> <button onclick="closeInteraction()">Close</button>`)
+.openOn(map);
+};
+
+window.closeInteraction=()=>{
+if(interactionBox)
+map.closePopup(interactionBox);
 };
 
 //////////////// AUTH //////////////////
