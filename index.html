@@ -24,9 +24,7 @@ text-align:center;
 font-size:18px;
 }
 
-#map{
-height:70vh;
-}
+#map{ height:70vh; }
 
 .card{
 background:white;
@@ -36,8 +34,8 @@ border-radius:8px;
 }
 
 button{
-padding:8px;
-margin:4px;
+padding:6px;
+margin:3px;
 background:#4a6cff;
 color:white;
 border:none;
@@ -59,12 +57,9 @@ border-radius:50%;
 border:3px solid transparent;
 }
 
-.pick:hover{
-border-color:#4a6cff;
-}
+.pick:hover{ border-color:#4a6cff; }
 
-#avatarPicker,
-#usernameBox{
+#avatarPicker,#usernameBox{
 position:absolute;
 top:70px;
 left:50%;
@@ -78,7 +73,6 @@ z-index:999;
 }
 
 </style>
-
 </head>
 
 <body>
@@ -86,17 +80,14 @@ z-index:999;
 <header>📍 closr2 — social radar</header>
 
 <div id="loginBox" class="card"></div>
-
 <div id="map"></div>
 
-<!-- USERNAME INPUT -->
 <div id="usernameBox">
-<b>Masukkan username:</b><br><br>
-<input id="uname"><br><br>
+<b>Username:</b><br>
+<input id="uname"><br>
 <button id="saveU">Save</button>
 </div>
 
-<!-- AVATAR PICKER -->
 <div id="avatarPicker">
 <b>Pilih avatar:</b><br><br>
 <img src="avatar/avatar1.png" class="pick">
@@ -128,6 +119,7 @@ import {
 getDatabase,
 ref,
 update,
+push,
 onValue
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
@@ -153,10 +145,10 @@ L.tileLayer(
 ).addTo(map);
 
 let markers={};
-let myLat,myLng;
+let myUID=null;
 
 ////////////////////////////////////////////////////////
-// LOGIN UI
+// LOGIN
 ////////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
@@ -165,67 +157,52 @@ function showLogin(){
 
 loginBox.innerHTML=`
 <h3>Login</h3>
-<input id="email" placeholder="email"><br>
-<input id="pass" type="password" placeholder="password"><br>
+<input id="email"><br>
+<input id="pass" type="password"><br>
 <button id="reg">Register</button>
 <button id="log">Login</button>
 `;
 
-reg.onclick=()=>{
-createUserWithEmailAndPassword(auth,email.value,pass.value)
-.catch(e=>alert(e.message));
-};
-
-log.onclick=()=>{
-signInWithEmailAndPassword(auth,email.value,pass.value)
-.catch(e=>alert(e.message));
-};
+reg.onclick=()=>createUserWithEmailAndPassword(auth,email.value,pass.value);
+log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value);
 
 }
 
 ////////////////////////////////////////////////////////
-// USERNAME PICKER
+// USERNAME
 ////////////////////////////////////////////////////////
 
 function askUsername(uid){
 
-let box=document.getElementById("usernameBox");
-box.style.display="block";
+usernameBox.style.display="block";
 
 saveU.onclick=()=>{
 
-let name=uname.value.trim();
-if(!name) return;
-
 update(ref(db,"users/"+uid),{
-username:name
+username:uname.value
 });
 
-box.style.display="none";
+usernameBox.style.display="none";
 
 };
 
 }
 
 ////////////////////////////////////////////////////////
-// AVATAR PICKER
+// AVATAR
 ////////////////////////////////////////////////////////
 
 function showAvatarPicker(uid){
 
-let picker=document.getElementById("avatarPicker");
-picker.style.display="block";
+avatarPicker.style.display="block";
 
 document.querySelectorAll(".pick").forEach(img=>{
 
 img.onclick=()=>{
-
 update(ref(db,"users/"+uid),{
 avatar:img.getAttribute("src")
 });
-
-picker.style.display="none";
-
+avatarPicker.style.display="none";
 };
 
 });
@@ -240,35 +217,47 @@ function ensureProfile(uid){
 
 onValue(ref(db,"users/"+uid),snap=>{
 
-let data=snap.val()||{};
+let d=snap.val()||{};
 
-if(!data.username) askUsername(uid);
-if(!data.avatar) showAvatarPicker(uid);
+if(!d.username) askUsername(uid);
+if(!d.avatar) showAvatarPicker(uid);
 
 },{onlyOnce:true});
 
 }
 
 ////////////////////////////////////////////////////////
-// GPS TRACK
+// GPS
 ////////////////////////////////////////////////////////
 
 function startGPS(uid){
 
 navigator.geolocation.watchPosition(pos=>{
 
-myLat=pos.coords.latitude;
-myLng=pos.coords.longitude;
-
 update(ref(db,"users/"+uid),{
-lat:myLat,
-lng:myLng,
+lat:pos.coords.latitude,
+lng:pos.coords.longitude,
 status:"online"
 });
 
-map.setView([myLat,myLng],16);
+map.setView([pos.coords.latitude,pos.coords.longitude],16);
 
 });
+
+}
+
+////////////////////////////////////////////////////////
+// FRIEND REQUEST
+////////////////////////////////////////////////////////
+
+function addFriend(targetUID){
+
+push(ref(db,"friendRequests/"+targetUID),{
+from:myUID,
+time:Date.now()
+});
+
+alert("Friend request sent!");
 
 }
 
@@ -278,17 +267,14 @@ map.setView([myLat,myLng],16);
 
 onValue(ref(db,"users"),snap=>{
 
-for(let id in markers){
-map.removeLayer(markers[id]);
-}
+for(let id in markers) map.removeLayer(markers[id]);
 markers={};
 
 snap.forEach(c=>{
 
 let u=c.val();
+let uid=c.key;
 if(!u.lat) return;
-
-let dot = u.status==="online" ? "🟢" : "⚪";
 
 let icon=L.divIcon({
 className:"",
@@ -296,16 +282,31 @@ html:`
 <img src="${u.avatar||'avatar/avatar1.png'}"
 style="width:50px;height:50px;border-radius:50%;">
 <br>${u.username||"user"}
-<br>${dot}
 `
 });
 
-markers[c.key]=L.marker([u.lat,u.lng],{icon})
-.addTo(map);
+let popup=`
+<b>${u.username}</b><br>
+<button onclick="dm('${uid}')">💬 DM</button>
+<button onclick="profile('${uid}')">👤 Profile</button>
+<button onclick="addFriend('${uid}')">➕ Friend</button>
+`;
+
+markers[uid]=L.marker([u.lat,u.lng],{icon})
+.addTo(map)
+.bindPopup(popup);
 
 });
 
 });
+
+////////////////////////////////////////////////////////
+// GLOBAL ACTIONS
+////////////////////////////////////////////////////////
+
+window.dm=(uid)=>alert("Open DM with "+uid);
+window.profile=(uid)=>alert("Open profile "+uid);
+window.addFriend=addFriend;
 
 ////////////////////////////////////////////////////////
 // AUTH
@@ -315,33 +316,25 @@ onAuthStateChanged(auth,user=>{
 
 if(user){
 
+myUID=user.uid;
+
 loginBox.innerHTML=`
-Logged in: ${user.email}<br>
-<button id="logout">Logout</button>
+Logged in<br>
+<button onclick="logout()">Logout</button>
 `;
 
-logout.onclick=()=>{
-
-update(ref(db,"users/"+user.uid),{
-status:"offline"
-});
-
+window.logout=()=>{
+update(ref(db,"users/"+myUID),{status:"offline"});
 signOut(auth);
-
 };
 
-ensureProfile(user.uid);
-startGPS(user.uid);
+ensureProfile(myUID);
+startGPS(myUID);
 
-}else{
-
-showLogin();
-
-}
+}else showLogin();
 
 });
 
 </script>
-
 </body>
 </html>
