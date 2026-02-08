@@ -25,7 +25,7 @@ font-size:18px;
 }
 
 #map{
-height:60vh;
+height:70vh;
 }
 
 .card{
@@ -65,9 +65,10 @@ border-color:#4a6cff;
 
 #avatarPicker,
 #usernameBox,
-#chatBox{
+#chatBox,
+#userMenu{
 position:absolute;
-top:80px;
+top:90px;
 left:50%;
 transform:translateX(-50%);
 background:white;
@@ -76,24 +77,15 @@ border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
 display:none;
 z-index:999;
+width:300px;
 }
 
 #chatMessages{
-height:200px;
+height:180px;
 overflow:auto;
 border:1px solid #ddd;
 padding:6px;
 margin-bottom:6px;
-}
-
-.msgMe{
-text-align:right;
-color:#4a6cff;
-}
-
-.msgOther{
-text-align:left;
-color:#333;
 }
 
 </style>
@@ -105,12 +97,13 @@ color:#333;
 <header>📍 closr2 — social radar + DM</header>
 
 <div id="loginBox" class="card"></div>
+
 <div id="map"></div>
 
 <!-- USERNAME -->
 <div id="usernameBox">
 <b>Masukkan username:</b><br><br>
-<input id="uname">
+<input id="uname"><br>
 <button id="saveU">Save</button>
 </div>
 
@@ -123,9 +116,19 @@ color:#333;
 <img src="avatar/avatar4.png" class="pick">
 </div>
 
+<!-- USER MENU -->
+<div id="userMenu">
+<b id="menuName"></b><br><br>
+<button id="dmBtn">💬 DM</button>
+<button onclick="alert('profile soon')">👤 Profile</button>
+<button onclick="alert('friend system next')">➕ Friend</button>
+<br><br>
+<button onclick="userMenu.style.display='none'">Close</button>
+</div>
+
 <!-- CHAT -->
 <div id="chatBox">
-<b id="chatTitle">Chat</b>
+<b id="chatTitle"></b><br><br>
 <div id="chatMessages"></div>
 <input id="chatInput" placeholder="ketik pesan">
 <button id="sendBtn">Send</button>
@@ -136,9 +139,9 @@ color:#333;
 
 <script type="module">
 
-//////////////////////////////
+////////////////////////////////////////////////////////
 // FIREBASE
-//////////////////////////////
+////////////////////////////////////////////////////////
 
 import { initializeApp }
 from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -170,9 +173,9 @@ const appFirebase=initializeApp(firebaseConfig);
 const auth=getAuth(appFirebase);
 const db=getDatabase(appFirebase);
 
-//////////////////////////////
+////////////////////////////////////////////////////////
 // MAP
-//////////////////////////////
+////////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
@@ -182,10 +185,11 @@ L.tileLayer(
 
 let markers={};
 let myUID=null;
+let myLat,myLng;
 
-//////////////////////////////
+////////////////////////////////////////////////////////
 // LOGIN UI
-//////////////////////////////
+////////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
 
@@ -193,104 +197,129 @@ function showLogin(){
 
 loginBox.innerHTML=`
 <h3>Login</h3>
-<input id="email"><br>
-<input id="pass" type="password"><br>
+<input id="email" placeholder="email"><br>
+<input id="pass" type="password" placeholder="password"><br>
 <button id="reg">Register</button>
 <button id="log">Login</button>
 `;
 
-reg.onclick=()=>createUserWithEmailAndPassword(auth,email.value,pass.value)
+reg.onclick=()=>{
+createUserWithEmailAndPassword(auth,email.value,pass.value)
 .catch(e=>alert(e.message));
-
-log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value)
-.catch(e=>alert(e.message));
-}
-
-//////////////////////////////
-// USERNAME + AVATAR
-//////////////////////////////
-
-function ensureProfile(uid){
-
-onValue(ref(db,"users/"+uid),snap=>{
-
-let d=snap.val()||{};
-
-if(!d.username){
-usernameBox.style.display="block";
-saveU.onclick=()=>{
-update(ref(db,"users/"+uid),{username:uname.value});
-usernameBox.style.display="none";
 };
+
+log.onclick=()=>{
+signInWithEmailAndPassword(auth,email.value,pass.value)
+.catch(e=>alert(e.message));
+};
+
 }
 
-if(!d.avatar){
+////////////////////////////////////////////////////////
+// PROFILE SETUP
+////////////////////////////////////////////////////////
+
+function askUsername(uid){
+
+usernameBox.style.display="block";
+
+saveU.onclick=()=>{
+
+let name=uname.value.trim();
+if(!name) return;
+
+update(ref(db,"users/"+uid),{username:name});
+usernameBox.style.display="none";
+
+};
+
+}
+
+function showAvatarPicker(uid){
+
 avatarPicker.style.display="block";
+
 document.querySelectorAll(".pick").forEach(img=>{
+
 img.onclick=()=>{
 update(ref(db,"users/"+uid),{
 avatar:img.getAttribute("src")
 });
 avatarPicker.style.display="none";
 };
+
 });
+
 }
+
+function ensureProfile(uid){
+
+onValue(ref(db,"users/"+uid),snap=>{
+
+let u=snap.val()||{};
+
+if(!u.username) askUsername(uid);
+if(!u.avatar) showAvatarPicker(uid);
 
 },{onlyOnce:true});
+
 }
 
-//////////////////////////////
+////////////////////////////////////////////////////////
 // GPS
-//////////////////////////////
+////////////////////////////////////////////////////////
 
 function startGPS(uid){
 
 navigator.geolocation.watchPosition(pos=>{
 
+myLat=pos.coords.latitude;
+myLng=pos.coords.longitude;
+
 update(ref(db,"users/"+uid),{
-lat:pos.coords.latitude,
-lng:pos.coords.longitude,
+lat:myLat,
+lng:myLng,
 status:"online"
 });
 
-map.setView([pos.coords.latitude,pos.coords.longitude],16);
+map.setView([myLat,myLng],16);
 
 });
+
 }
 
-//////////////////////////////
-// DM SYSTEM
-//////////////////////////////
+////////////////////////////////////////////////////////
+// CHAT SYSTEM
+////////////////////////////////////////////////////////
 
-let activeRoom=null;
+let chatTarget=null;
 
-function openChat(targetUID,targetName){
+function chatID(a,b){
+return a<b ? a+"_"+b : b+"_"+a;
+}
 
+function openChat(uid,name){
+
+chatTarget=uid;
+
+chatTitle.innerText="Chat: "+name;
 chatBox.style.display="block";
-chatTitle.innerText="Chat: "+targetName;
 
-let room=[myUID,targetUID].sort().join("_");
-activeRoom=room;
+let id=chatID(myUID,uid);
 
-onValue(ref(db,"chats/"+room+"/messages"),snap=>{
+onValue(ref(db,"chats/"+id),snap=>{
 
 chatMessages.innerHTML="";
 
 snap.forEach(m=>{
 
 let msg=m.val();
-let div=document.createElement("div");
-
-div.className=msg.sender===myUID
-?"msgMe":"msgOther";
-
-div.innerText=msg.text;
-
-chatMessages.appendChild(div);
-
+chatMessages.innerHTML+=`
+<div><b>${msg.from===myUID?"me":"them"}:</b>
+${msg.text}</div>`;
 });
 
-chatMessages.scrollTop=chatMessages.scrollHeight;
+chatMessages.scrollTop=9999;
 
 });
 
@@ -298,24 +327,42 @@ chatMessages.scrollTop=chatMessages.scrollHeight;
 
 sendBtn.onclick=()=>{
 
-if(!activeRoom) return;
+let text=chatInput.value.trim();
+if(!text||!chatTarget) return;
 
-push(ref(db,"chats/"+activeRoom+"/messages"),{
-sender:myUID,
-text:chatInput.value,
+push(ref(db,"chats/"+chatID(myUID,chatTarget)),{
+from:myUID,
+text:text,
 time:Date.now()
 });
 
 chatInput.value="";
+
 };
 
-//////////////////////////////
+////////////////////////////////////////////////////////
+// USER MENU
+////////////////////////////////////////////////////////
+
+let selectedUID=null;
+let selectedName=null;
+
+dmBtn.onclick=()=>{
+
+userMenu.style.display="none";
+openChat(selectedUID,selectedName);
+
+};
+
+////////////////////////////////////////////////////////
 // RADAR
-//////////////////////////////
+////////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
 
-for(let id in markers) map.removeLayer(markers[id]);
+for(let id in markers){
+map.removeLayer(markers[id]);
+}
 markers={};
 
 snap.forEach(c=>{
@@ -323,25 +370,27 @@ snap.forEach(c=>{
 let u=c.val();
 if(!u.lat) return;
 
-let dot=u.status==="online"?"🟢":"⚪";
-
 let icon=L.divIcon({
 className:"",
 html:`
 <img src="${u.avatar||'avatar/avatar1.png'}"
 style="width:50px;height:50px;border-radius:50%;">
 <br>${u.username||"user"}
-<br>${dot}
 `
 });
 
-let marker=L.marker([u.lat,u.lng],{icon}).addTo(map);
+let marker=L.marker([u.lat,u.lng],{icon})
+.addTo(map);
 
 marker.on("click",()=>{
 
 if(c.key===myUID) return;
 
-openChat(c.key,u.username);
+selectedUID=c.key;
+selectedName=u.username;
+
+menuName.innerText=u.username;
+userMenu.style.display="block";
 
 });
 
@@ -351,9 +400,9 @@ markers[c.key]=marker;
 
 });
 
-//////////////////////////////
+////////////////////////////////////////////////////////
 // AUTH
-//////////////////////////////
+////////////////////////////////////////////////////////
 
 onAuthStateChanged(auth,user=>{
 
@@ -362,20 +411,22 @@ if(user){
 myUID=user.uid;
 
 loginBox.innerHTML=`
-Logged in: ${user.email}
+Logged in: ${user.email}<br>
 <button id="logout">Logout</button>
 `;
 
 logout.onclick=()=>{
-update(ref(db,"users/"+user.uid),{status:"offline"});
+update(ref(db,"users/"+myUID),{status:"offline"});
 signOut(auth);
 };
 
-ensureProfile(user.uid);
-startGPS(user.uid);
+ensureProfile(myUID);
+startGPS(myUID);
 
 }else{
+
 showLogin();
+
 }
 
 });
