@@ -28,6 +28,20 @@ font-size:18px;
 height:90vh;
 }
 
+.centerBtn{
+position:absolute;
+bottom:20px;
+right:15px;
+background:#4a6cff;
+color:white;
+border:none;
+padding:12px;
+border-radius:50%;
+font-size:18px;
+box-shadow:0 4px 10px rgba(0,0,0,.2);
+cursor:pointer;
+}
+
 </style>
 
 </head>
@@ -38,6 +52,8 @@ height:90vh;
 
 <div id="map"></div>
 
+<button class="centerBtn" onclick="centerMe()">🎯</button>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
@@ -46,15 +62,15 @@ height:90vh;
 // FIREBASE IMPORT
 //////////////////////////////////////////////////////
 
-import { initializeApp } from
-"https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 
 import {
 getAuth,
 signInAnonymously,
 onAuthStateChanged
-} from
-"https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+}
+from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
 import {
 getDatabase,
@@ -62,11 +78,11 @@ ref,
 set,
 update,
 onValue
-} from
-"https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+}
+from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
 //////////////////////////////////////////////////////
-// FIREBASE CONFIG — PUNYA KAMU
+// FIREBASE CONFIG
 //////////////////////////////////////////////////////
 
 const firebaseConfig = {
@@ -90,7 +106,7 @@ const db = getDatabase(app);
 signInAnonymously(auth);
 
 //////////////////////////////////////////////////////
-// MAP INIT — CARTO STYLE
+// MAP INIT — CARTO
 //////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
@@ -134,37 +150,43 @@ avatar:"avatar/avatar1.png"
 }
 
 //////////////////////////////////////////////////////
-// GPS TRACKING + AUTO CENTER
+// GPS + AUTO CENTER
 //////////////////////////////////////////////////////
 
-let myMarker=null;
+let myLat=null;
+let myLng=null;
+
+function centerMe(){
+
+if(myLat && myLng){
+map.flyTo([myLat,myLng],16);
+}
+
+}
 
 function startGPS(uid){
 
 navigator.geolocation.watchPosition(pos=>{
 
-let lat=pos.coords.latitude;
-let lng=pos.coords.longitude;
+myLat=pos.coords.latitude;
+myLng=pos.coords.longitude;
 
-// auto center
-map.flyTo([lat,lng],16);
+// auto follow
+map.flyTo([myLat,myLng],16);
 
-// save ONLY lat/lng
-set(ref(db,"users/"+uid+"/lat"),lat);
-set(ref(db,"users/"+uid+"/lng"),lng);
+set(ref(db,"users/"+uid+"/lat"),myLat);
+set(ref(db,"users/"+uid+"/lng"),myLng);
 
 },
 ()=>{
-alert("GPS gagal / tidak diizinkan");
+alert("GPS gagal");
 },
-{
-enableHighAccuracy:true
-});
+{enableHighAccuracy:true});
 
 }
 
 //////////////////////////////////////////////////////
-// RADAR — USER MARKERS
+// RADAR USER MARKERS
 //////////////////////////////////////////////////////
 
 let markers={};
@@ -216,6 +238,12 @@ ensureUserProfile(uid);
 startGPS(uid);
 
 });
+
+//////////////////////////////////////////////////////
+// EXPOSE BUTTON FUNC
+//////////////////////////////////////////////////////
+
+window.centerMe=centerMe;
 
 </script>
 
