@@ -3,7 +3,7 @@
 <head>
 
 <meta charset="UTF-8">
-<title>📍 closr — stable base</title>
+<title>📍 closr — social map</title>
 
 <link rel="stylesheet" href="style.css">
 
@@ -14,7 +14,7 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <body>
 
-<header>📍 closr — stable base</header>
+<header>📍 closr — social map</header>
 
 <div id="loginBox" class="card"></div>
 
@@ -23,22 +23,45 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <div id="map"></div>
 
-<!-- MOMENT POPUP -->
+<!-- USERNAME POPUP -->
+<div id="usernameBox" class="popup">
+<b>Choose username:</b><br>
+<input id="uname"><br>
+<button onclick="saveUsername()">Save</button>
+</div>
 
-<div id="momentBox" class="popup">
+<!-- AVATAR PICKER -->
+<div id="avatarBox" class="popup">
+<b>Select avatar:</b><br><br>
 
-<b>Share moment:</b><br>
-
-<textarea id="momentText"></textarea><br>
-
-<button onclick="sendMoment()">Post</button>
-
-<button onclick="momentBox.style.display='none'">Close</button>
+<img src="avatar/avatar1.png" class="pick">
+<img src="avatar/avatar2.png" class="pick">
+<img src="avatar/avatar3.png" class="pick">
+<img src="avatar/avatar4.png" class="pick">
 
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- MOMENT -->
+<div id="momentBox" class="popup">
+<b>Share moment:</b><br>
+<textarea id="momentText"></textarea><br>
+<button onclick="sendMoment()">Post</button>
+<button onclick="momentBox.style.display='none'">Close</button>
+</div>
 
+<!-- INTERACTION -->
+<div id="interactionBox" class="popup"></div>
+
+<!-- DM CHAT -->
+<div id="chatBox" class="popup">
+<b id="chatTitle"></b><br>
+<div id="chatLog"></div>
+<input id="chatInput"><br>
+<button onclick="sendDM()">Send</button>
+<button onclick="closeChat()">Close</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="script.js"></script>
 
 </body>
