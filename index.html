@@ -341,7 +341,15 @@ Logged in: ${user.email}<br>
 <button id="logout">Logout</button>
 `;
 
-logout.onclick=()=>signOut(auth);
+logout.onclick=()=>{
+
+update(ref(db,"users/"+user.uid),{
+status:"offline"
+});
+
+signOut(auth);
+
+};
 
 ensureProfile(user.uid);
 startGPS(user.uid);
