@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////
-// CLOSR ULTIMATE — PART 3
-// Presence + Discovery + Ping System
+// CLOSR ULTIMATE — PART 4
+// Presence + Discovery + Ping + Hangout Engine
 ////////////////////////////////////////////////////////
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -34,7 +34,7 @@ L.tileLayer(
 ).addTo(map);
 
 ////////////////////////////////////////////////////////
-// GLOBAL ENGINE
+// GLOBAL STATE
 ////////////////////////////////////////////////////////
 
 let myUID=null;
@@ -43,19 +43,19 @@ let lastLat,lastLng;
 
 let myFriends={};
 let userMarkers={};
+let hangoutMarkers={};
 
 let ghostMode=false;
 
 const DISCOVERY_RADIUS=1;
 
 ////////////////////////////////////////////////////////
-// LOGIN UI
+// LOGIN
 ////////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
 
 function showLogin(){
-
 loginBox.innerHTML=`
 <h3>Login</h3>
 <input id="email"><br>
@@ -69,14 +69,12 @@ loginBox.innerHTML=`
 ////////////////////////////////////////////////////////
 
 function ensureUsername(){
-
 onValue(ref(db,"users/"+myUID+"/username"),snap=>{
 if(!snap.exists())
 update(ref(db,"users/"+myUID),{
 username:"user_"+myUID.slice(0,5)
 });
 },{onlyOnce:true});
-
 }
 
 ////////////////////////////////////////////////////////
@@ -84,38 +82,24 @@ username:"user_"+myUID.slice(0,5)
 ////////////////////////////////////////////////////////
 
 function distanceKm(a,b,c,d){
-
 let R=6371;
-
 let dLat=(c-a)*Math.PI/180;
 let dLon=(d-b)*Math.PI/180;
-
-let x=
-Math.sin(dLat/2)**2+
+let x=Math.sin(dLat/2)**2+
 Math.cos(a*Math.PI/180)*
 Math.cos(c*Math.PI/180)*
 Math.sin(dLon/2)**2;
-
 return R*(2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)));
 }
 
 ////////////////////////////////////////////////////////
-// PRESENCE ENGINE
+// PRESENCE
 ////////////////////////////////////////////////////////
 
 function detectStatus(lat,lng){
-
-if(!lastLat){
-lastLat=lat;
-lastLng=lng;
-return "online";
-}
-
+if(!lastLat){lastLat=lat;lastLng=lng;return"online";}
 let move=Math.abs(lat-lastLat)+Math.abs(lng-lastLng);
-
-lastLat=lat;
-lastLng=lng;
-
+lastLat=lat;lastLng=lng;
 return move>0.0002?"moving":"idle";
 }
 
@@ -124,27 +108,20 @@ return move>0.0002?"moving":"idle";
 ////////////////////////////////////////////////////////
 
 function startGPS(){
-
 navigator.geolocation.watchPosition(pos=>{
-
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
 update(ref(db,"users/"+myUID),{
-
-lat:myLat,
-lng:myLng,
-
+lat:myLat,lng:myLng,
 presence:{
 status:detectStatus(myLat,myLng),
 lastActive:Date.now(),
 ghost:ghostMode
 }
-
 });
 
 map.setView([myLat,myLng],16);
-
 });
 }
 
@@ -157,35 +134,26 @@ if(myLat) map.setView([myLat,myLng],17);
 ////////////////////////////////////////////////////////
 
 function loadFriends(){
-
 onValue(ref(db,"friends/"+myUID),snap=>{
 myFriends=snap.val()||{};
 });
-
 }
 
 ////////////////////////////////////////////////////////
-// ANIMATION PULSE
+// ANIMATION
 ////////////////////////////////////////////////////////
 
-function presencePulse(marker){
-
-let scale=1;
-
+function pulse(marker){
+let s=1;
 setInterval(()=>{
-
-scale=scale===1?1.25:1;
-
+s=s===1?1.25:1;
 if(marker._icon)
-marker._icon.style.transform=
-`scale(${scale})`;
-
+marker._icon.style.transform=`scale(${s})`;
 },1000);
-
 }
 
 ////////////////////////////////////////////////////////
-// USER RADAR + DISCOVERY
+// USER RADAR
 ////////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
@@ -210,21 +178,16 @@ let status=u.presence?.status||"offline";
 let nearby=false;
 
 if(myLat && c.key!==myUID){
-
-let dist=
+nearby=
 distanceKm(
 myLat,myLng,
 u.lat,u.lng
-);
-
-nearby=dist<=DISCOVERY_RADIUS;
-
+)<=DISCOVERY_RADIUS;
 }
 
 let badge=nearby?"🔥 nearby":"";
 
 let icon=L.divIcon({
-
 html:`
 <div style="
 background:${nearby?"#FFF3E0":"white"};
@@ -232,22 +195,16 @@ padding:4px;
 border-radius:12px;
 font-size:11px;
 text-align:center;
-border:${nearby?"2px solid orange":"none"};
 ">
-${u.username||"user"}<br>
+${u.username}<br>
 🟢 ${status}<br>
 ${badge}<br>
-<button onclick="pingUser('${c.key}')">
-Ping
-</button>
+<button onclick="pingUser('${c.key}')">Ping</button>
 </div>`
-
 });
 
-let m=L.marker([u.lat,u.lng],{icon})
-.addTo(map);
-
-presencePulse(m);
+let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
+pulse(m);
 
 userMarkers[c.key]=m;
 
@@ -259,29 +216,75 @@ userMarkers[c.key]=m;
 // PING SYSTEM
 ////////////////////////////////////////////////////////
 
-window.pingUser=(target)=>{
-
-if(!myFriends[target]){
-alert("Ping hanya untuk teman");
+window.pingUser=(uid)=>{
+if(!myFriends[uid]){
+alert("Ping hanya teman");
 return;
 }
-
-push(ref(db,"pings/"+target),{
-
+push(ref(db,"pings/"+uid),{
 from:myUID,
 time:Date.now()
+});
+};
 
+onValue(ref(db,"pings/"+myUID),snap=>{
+snap.forEach(c=>{
+alert("🔔 Friend ping!");
+remove(ref(db,"pings/"+myUID+"/"+c.key));
+});
+});
+
+////////////////////////////////////////////////////////
+// HANGOUT SYSTEM
+////////////////////////////////////////////////////////
+
+window.createHangout=()=>{
+
+if(!myLat) return;
+
+push(ref(db,"hangouts"),{
+owner:myUID,
+lat:myLat,lng:myLng,
+time:Date.now(),
+expires:Date.now()+1000*60*30
 });
 
 };
 
-onValue(ref(db,"pings/"+myUID),snap=>{
+window.joinHangout=(id)=>{
+update(ref(db,"hangouts/"+id+"/members/"+myUID),true);
+alert("Joined hangout!");
+};
+
+onValue(ref(db,"hangouts"),snap=>{
+
+for(let k in hangoutMarkers)
+map.removeLayer(hangoutMarkers[k]);
+
+hangoutMarkers={};
 
 snap.forEach(c=>{
 
-alert("🔔 Friend ping!");
+let h=c.val();
 
-remove(ref(db,"pings/"+myUID+"/"+c.key));
+if(Date.now()>h.expires){
+remove(ref(db,"hangouts/"+c.key));
+return;
+}
+
+let mk=L.circleMarker([h.lat,h.lng],{
+radius:14,
+color:"orange"
+})
+.addTo(map)
+.bindPopup(`
+🔥 Hangout<br>
+<button onclick="joinHangout('${c.key}')">
+Join
+</button>
+`);
+
+hangoutMarkers[c.key]=mk;
 
 });
 
