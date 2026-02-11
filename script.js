@@ -1,14 +1,14 @@
 ////////////////////////////////////////////////////////
-// CLOSR ULTIMATE — PART 1
-// Core realtime engine + presence foundation
+// CLOSR ULTIMATE — PART 2
+// Presence + Nearby Discovery Engine
 ////////////////////////////////////////////////////////
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-import { getDatabase, ref, update, push, onValue, remove } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
 ////////////////////////////////////////////////////////
-// FIREBASE CONFIG (pakai milikmu)
+// FIREBASE
 ////////////////////////////////////////////////////////
 
 const firebaseConfig={
@@ -24,7 +24,7 @@ const auth=getAuth(app);
 const db=getDatabase(app);
 
 ////////////////////////////////////////////////////////
-// MAP INIT
+// MAP
 ////////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
@@ -34,7 +34,7 @@ L.tileLayer(
 ).addTo(map);
 
 ////////////////////////////////////////////////////////
-// GLOBAL STATE ENGINE
+// GLOBAL ENGINE
 ////////////////////////////////////////////////////////
 
 let myUID=null;
@@ -44,15 +44,18 @@ let lastLat,lastLng;
 let myFriends={};
 let userMarkers={};
 
-let ghostMode=false; // dipakai part berikutnya
+let ghostMode=false;
+
+const DISCOVERY_RADIUS=1; // km
 
 ////////////////////////////////////////////////////////
-// LOGIN UI
+// LOGIN
 ////////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
 
 function showLogin(){
+
 loginBox.innerHTML=`
 <h3>Login</h3>
 <input id="email"><br>
@@ -62,21 +65,22 @@ loginBox.innerHTML=`
 }
 
 ////////////////////////////////////////////////////////
-// USERNAME INIT
+// USERNAME
 ////////////////////////////////////////////////////////
 
 function ensureUsername(){
+
 onValue(ref(db,"users/"+myUID+"/username"),snap=>{
-if(!snap.exists()){
+if(!snap.exists())
 update(ref(db,"users/"+myUID),{
 username:"user_"+myUID.slice(0,5)
 });
-}
 },{onlyOnce:true});
+
 }
 
 ////////////////////////////////////////////////////////
-// DISTANCE ENGINE (dipakai discovery nanti)
+// DISTANCE CALC
 ////////////////////////////////////////////////////////
 
 function distanceKm(a,b,c,d){
@@ -116,7 +120,7 @@ return move>0.0002?"moving":"idle";
 }
 
 ////////////////////////////////////////////////////////
-// GPS + PRESENCE LOOP
+// GPS LOOP
 ////////////////////////////////////////////////////////
 
 function startGPS(){
@@ -161,7 +165,7 @@ myFriends=snap.val()||{};
 }
 
 ////////////////////////////////////////////////////////
-// ANIMATED PRESENCE PULSE
+// ANIMATION PULSE
 ////////////////////////////////////////////////////////
 
 function presencePulse(marker){
@@ -170,7 +174,7 @@ let scale=1;
 
 setInterval(()=>{
 
-scale=scale===1?1.3:1;
+scale=scale===1?1.25:1;
 
 if(marker._icon)
 marker._icon.style.transform=
@@ -181,7 +185,7 @@ marker._icon.style.transform=
 }
 
 ////////////////////////////////////////////////////////
-// USER RADAR (presence-ready)
+// USER RADAR + DISCOVERY
 ////////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
@@ -203,18 +207,36 @@ return;
 
 let status=u.presence?.status||"offline";
 
+let nearby=false;
+
+if(myLat && c.key!==myUID){
+
+let dist=
+distanceKm(
+myLat,myLng,
+u.lat,u.lng
+);
+
+nearby=dist<=DISCOVERY_RADIUS;
+
+}
+
+let badge=nearby?"🔥 nearby":"";
+
 let icon=L.divIcon({
 
 html:`
 <div style="
-background:white;
+background:${nearby?"#FFF3E0":"white"};
 padding:4px;
 border-radius:12px;
 font-size:11px;
 text-align:center;
+border:${nearby?"2px solid orange":"none"};
 ">
 ${u.username||"user"}<br>
-🟢 ${status}
+🟢 ${status}<br>
+${badge}
 </div>`
 
 });
@@ -231,7 +253,7 @@ userMarkers[c.key]=m;
 });
 
 ////////////////////////////////////////////////////////
-// AUTH FLOW
+// AUTH
 ////////////////////////////////////////////////////////
 
 onAuthStateChanged(auth,user=>{
