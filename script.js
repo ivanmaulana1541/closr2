@@ -12,11 +12,8 @@ const storage=getStorage(app);
 let map=L.map("map").setView([-6.2,106.8],15);
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png").addTo(map);
 
-let myUID,myLat,myLng;
-let lastLat,lastLng;
-let myFriends={};
-let userMarkers={};
-let momentMarkers={};
+let myUID,myLat,myLng,lastLat,lastLng;
+let myFriends={},momentMarkers={},hangoutMarkers={},userMarkers={};
 
 const loginBox=document.getElementById("loginBox");
 
@@ -37,50 +34,28 @@ update(ref(db,"users/"+myUID),{username:"user_"+myUID.slice(0,5)});
 }
 
 /////////////////////////////////////////////////
-// PRESENCE DETECTOR
+// PRESENCE + GPS
 /////////////////////////////////////////////////
 
 function detectStatus(lat,lng){
-
-if(!lastLat){
-lastLat=lat;lastLng=lng;
-return "online";
-}
-
+if(!lastLat){lastLat=lat;lastLng=lng;return"online";}
 let move=Math.abs(lat-lastLat)+Math.abs(lng-lastLng);
-
 lastLat=lat;lastLng=lng;
-
-if(move>0.0002) return "moving";
-return "idle";
+return move>0.0002?"moving":"idle";
 }
-
-/////////////////////////////////////////////////
-// GPS + PRESENCE
-/////////////////////////////////////////////////
 
 function startGPS(){
-
 navigator.geolocation.watchPosition(pos=>{
-
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
-let status=detectStatus(myLat,myLng);
-
 update(ref(db,"users/"+myUID),{
-lat:myLat,
-lng:myLng,
-presence:{
-status,
-lastActive:Date.now()
-}
+lat:myLat,lng:myLng,
+presence:{status:detectStatus(myLat,myLng),lastActive:Date.now()}
 });
 
 map.setView([myLat,myLng],16);
-
 });
-
 }
 
 window.centerMe=()=>{if(myLat) map.setView([myLat,myLng],17);};
@@ -96,19 +71,17 @@ myFriends=snap.val()||{};
 }
 
 /////////////////////////////////////////////////
-// MOMENT POST
+// MOMENT
 /////////////////////////////////////////////////
 
 window.openMoment=()=>momentBox.style.display="block";
 
 window.sendMoment=async()=>{
-
 let text=momentText.value.trim();
 if(!text) return;
 
 let photo="";
 let file=momentPhoto.files[0];
-
 if(file){
 let r=sRef(storage,"moments/"+myUID+"/"+Date.now());
 await uploadBytes(r,file);
@@ -124,60 +97,21 @@ friendsOnly:friendOnly.checked
 momentBox.style.display="none";
 };
 
-/////////////////////////////////////////////////
-// VISIBILITY
-/////////////////////////////////////////////////
-
 function canSee(owner,data){
 if(!data.friendsOnly) return true;
-return owner===myUID || myFriends[owner];
+return owner===myUID||myFriends[owner];
 }
 
 /////////////////////////////////////////////////
-// USER RADAR WITH PRESENCE
-/////////////////////////////////////////////////
-
-onValue(ref(db,"users"),snap=>{
-
-for(let k in userMarkers) map.removeLayer(userMarkers[k]);
-userMarkers={};
-
-snap.forEach(c=>{
-
-let u=c.val();
-if(!u.lat) return;
-
-let status=u.presence?.status||"offline";
-
-let icon=L.divIcon({
-html:`
-<div style="text-align:center">
-<div style="font-size:12px">
-${u.username||"user"}<br>
-🟢 ${status}
-</div>
-</div>`
-});
-
-let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
-userMarkers[c.key]=m;
-
-});
-
-});
-
-/////////////////////////////////////////////////
-// MOMENTS MAP
+// MOMENT MAP
 /////////////////////////////////////////////////
 
 onValue(ref(db,"moments"),snap=>{
-
 for(let k in momentMarkers) map.removeLayer(momentMarkers[k]);
 momentMarkers={};
 
 snap.forEach(user=>{
 let owner=user.key;
-
 user.forEach(m=>{
 let d=m.val();
 if(!canSee(owner,d)) return;
@@ -188,9 +122,72 @@ let mk=L.marker([d.lat,d.lng])
 
 momentMarkers[m.key]=mk;
 });
-
+});
 });
 
+/////////////////////////////////////////////////
+// HANGOUT SYSTEM
+/////////////////////////////////////////////////
+
+window.openHangout=()=>hangoutBox.style.display="block";
+
+window.createHangout=()=>{
+let text=hangoutText.value.trim();
+if(!text||!myLat) return;
+
+push(ref(db,"hangouts"),{
+owner:myUID,
+lat:myLat,lng:myLng,
+text,
+expires:Date.now()+1000*60*30
+});
+
+hangoutBox.style.display="none";
+};
+
+onValue(ref(db,"hangouts"),snap=>{
+for(let k in hangoutMarkers) map.removeLayer(hangoutMarkers[k]);
+hangoutMarkers={};
+
+snap.forEach(c=>{
+let d=c.val();
+if(Date.now()>d.expires){
+remove(ref(db,"hangouts/"+c.key));
+return;
+}
+
+let mk=L.circleMarker([d.lat,d.lng],{
+radius:12,color:"orange"
+})
+.addTo(map)
+.bindPopup(`🔥 Hangout<br>${d.text}`);
+
+hangoutMarkers[c.key]=mk;
+});
+});
+
+/////////////////////////////////////////////////
+// USER RADAR
+/////////////////////////////////////////////////
+
+onValue(ref(db,"users"),snap=>{
+for(let k in userMarkers) map.removeLayer(userMarkers[k]);
+userMarkers={};
+
+snap.forEach(c=>{
+let u=c.val();
+if(!u.lat) return;
+
+let status=u.presence?.status||"offline";
+
+let icon=L.divIcon({
+html:`<div style="font-size:12px;text-align:center">
+${u.username}<br>🟢 ${status}</div>`
+});
+
+userMarkers[c.key]=
+L.marker([u.lat,u.lng],{icon}).addTo(map);
+});
 });
 
 /////////////////////////////////////////////////
@@ -203,9 +200,7 @@ timelineBox.style.display==="none"?"block":"none";
 };
 
 onValue(ref(db,"moments"),snap=>{
-
 let feed=[];
-
 snap.forEach(user=>{
 let owner=user.key;
 user.forEach(m=>{
@@ -216,13 +211,13 @@ if(canSee(owner,d)) feed.push(d);
 
 feed.sort((a,b)=>b.time-a.time);
 
-timelineBox.innerHTML="<b>Timeline</b><br><br>"+
+timelineBox.innerHTML=
+"<b>Timeline</b><br><br>"+
 feed.map(f=>`📍 ${f.text}<hr>`).join("");
-
 });
 
 /////////////////////////////////////////////////
-// FRIEND + REQUEST SYSTEM
+// FRIEND + REQUEST
 /////////////////////////////////////////////////
 
 window.openFriend=()=>friendBox.style.display="block";
