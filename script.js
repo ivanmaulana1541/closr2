@@ -194,13 +194,15 @@ return move>0.0002?"moving":"idle";
 ////////////////////////////////////////////////////////
 
 function startGPS(){
-navigator.geolocation.watchPosition(pos=>{
+navigator.geolocation.watchPosition(
+pos=>{
 
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
 update(ref(db,"users/"+myUID),{
-lat:myLat,lng:myLng,
+lat:myLat,
+lng:myLng,
 presence:{
 status:detectStatus(myLat,myLng),
 lastActive:Date.now(),
@@ -210,8 +212,18 @@ ghost:ghostMode
 
 map.setView([myLat,myLng],16);
 
-});
+},
+err=>{
+
+alert("GPS permission diperlukan!");
+console.log(err);
+
+},
+{
+enableHighAccuracy:true
 }
+);
+
 
 window.centerMe=()=>{
 if(myLat) map.setView([myLat,myLng],17);
