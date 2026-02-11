@@ -1,19 +1,54 @@
+////////////////////////////////////////////////////////
+// CLOSR ULTIMATE — PART 1
+// Core realtime engine + presence foundation
+////////////////////////////////////////////////////////
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { getDatabase, ref, update, push, onValue, remove } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
-const firebaseConfig={apiKey:"AIza...",authDomain:"...",databaseURL:"...",projectId:"...",storageBucket:"..."};
+////////////////////////////////////////////////////////
+// FIREBASE CONFIG (pakai milikmu)
+////////////////////////////////////////////////////////
+
+const firebaseConfig={
+apiKey:"AIza...",
+authDomain:"...",
+databaseURL:"...",
+projectId:"...",
+storageBucket:"..."
+};
+
 const app=initializeApp(firebaseConfig);
 const auth=getAuth(app);
 const db=getDatabase(app);
-const storage=getStorage(app);
+
+////////////////////////////////////////////////////////
+// MAP INIT
+////////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png").addTo(map);
 
-let myUID,myLat,myLng,lastLat,lastLng;
-let myFriends={},momentMarkers={},hangoutMarkers={},userMarkers={};
+L.tileLayer(
+"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+).addTo(map);
+
+////////////////////////////////////////////////////////
+// GLOBAL STATE ENGINE
+////////////////////////////////////////////////////////
+
+let myUID=null;
+let myLat,myLng;
+let lastLat,lastLng;
+
+let myFriends={};
+let userMarkers={};
+
+let ghostMode=false; // dipakai part berikutnya
+
+////////////////////////////////////////////////////////
+// LOGIN UI
+////////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
 
@@ -26,265 +61,195 @@ loginBox.innerHTML=`
 <button onclick="signInWithEmailAndPassword(auth,email.value,pass.value)">Login</button>`;
 }
 
+////////////////////////////////////////////////////////
+// USERNAME INIT
+////////////////////////////////////////////////////////
+
 function ensureUsername(){
 onValue(ref(db,"users/"+myUID+"/username"),snap=>{
-if(!snap.exists())
-update(ref(db,"users/"+myUID),{username:"user_"+myUID.slice(0,5)});
+if(!snap.exists()){
+update(ref(db,"users/"+myUID),{
+username:"user_"+myUID.slice(0,5)
+});
+}
 },{onlyOnce:true});
 }
 
-/////////////////////////////////////////////////
-// PRESENCE + GPS
-/////////////////////////////////////////////////
+////////////////////////////////////////////////////////
+// DISTANCE ENGINE (dipakai discovery nanti)
+////////////////////////////////////////////////////////
+
+function distanceKm(a,b,c,d){
+
+let R=6371;
+
+let dLat=(c-a)*Math.PI/180;
+let dLon=(d-b)*Math.PI/180;
+
+let x=
+Math.sin(dLat/2)**2+
+Math.cos(a*Math.PI/180)*
+Math.cos(c*Math.PI/180)*
+Math.sin(dLon/2)**2;
+
+return R*(2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)));
+}
+
+////////////////////////////////////////////////////////
+// PRESENCE ENGINE
+////////////////////////////////////////////////////////
 
 function detectStatus(lat,lng){
-if(!lastLat){lastLat=lat;lastLng=lng;return"online";}
+
+if(!lastLat){
+lastLat=lat;
+lastLng=lng;
+return "online";
+}
+
 let move=Math.abs(lat-lastLat)+Math.abs(lng-lastLng);
-lastLat=lat;lastLng=lng;
+
+lastLat=lat;
+lastLng=lng;
+
 return move>0.0002?"moving":"idle";
 }
 
+////////////////////////////////////////////////////////
+// GPS + PRESENCE LOOP
+////////////////////////////////////////////////////////
+
 function startGPS(){
+
 navigator.geolocation.watchPosition(pos=>{
+
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
 update(ref(db,"users/"+myUID),{
-lat:myLat,lng:myLng,
-presence:{status:detectStatus(myLat,myLng),lastActive:Date.now()}
+
+lat:myLat,
+lng:myLng,
+
+presence:{
+status:detectStatus(myLat,myLng),
+lastActive:Date.now(),
+ghost:ghostMode
+}
+
 });
 
 map.setView([myLat,myLng],16);
+
 });
 }
 
-window.centerMe=()=>{if(myLat) map.setView([myLat,myLng],17);};
+window.centerMe=()=>{
+if(myLat) map.setView([myLat,myLng],17);
+};
 
-/////////////////////////////////////////////////
+////////////////////////////////////////////////////////
 // FRIEND CACHE
-/////////////////////////////////////////////////
+////////////////////////////////////////////////////////
 
 function loadFriends(){
+
 onValue(ref(db,"friends/"+myUID),snap=>{
 myFriends=snap.val()||{};
 });
+
 }
 
-/////////////////////////////////////////////////
-// MOMENT
-/////////////////////////////////////////////////
+////////////////////////////////////////////////////////
+// ANIMATED PRESENCE PULSE
+////////////////////////////////////////////////////////
 
-window.openMoment=()=>momentBox.style.display="block";
+function presencePulse(marker){
 
-window.sendMoment=async()=>{
-let text=momentText.value.trim();
-if(!text) return;
+let scale=1;
 
-let photo="";
-let file=momentPhoto.files[0];
-if(file){
-let r=sRef(storage,"moments/"+myUID+"/"+Date.now());
-await uploadBytes(r,file);
-photo=await getDownloadURL(r);
+setInterval(()=>{
+
+scale=scale===1?1.3:1;
+
+if(marker._icon)
+marker._icon.style.transform=
+`scale(${scale})`;
+
+},1000);
+
 }
 
-push(ref(db,"moments/"+myUID),{
-text,photo,lat:myLat,lng:myLng,
-time:Date.now(),
-friendsOnly:friendOnly.checked
-});
-
-momentBox.style.display="none";
-};
-
-function canSee(owner,data){
-if(!data.friendsOnly) return true;
-return owner===myUID||myFriends[owner];
-}
-
-/////////////////////////////////////////////////
-// MOMENT MAP
-/////////////////////////////////////////////////
-
-onValue(ref(db,"moments"),snap=>{
-for(let k in momentMarkers) map.removeLayer(momentMarkers[k]);
-momentMarkers={};
-
-snap.forEach(user=>{
-let owner=user.key;
-user.forEach(m=>{
-let d=m.val();
-if(!canSee(owner,d)) return;
-
-let mk=L.marker([d.lat,d.lng])
-.addTo(map)
-.bindPopup(`📍 ${d.text}`);
-
-momentMarkers[m.key]=mk;
-});
-});
-});
-
-/////////////////////////////////////////////////
-// HANGOUT SYSTEM
-/////////////////////////////////////////////////
-
-window.openHangout=()=>hangoutBox.style.display="block";
-
-window.createHangout=()=>{
-let text=hangoutText.value.trim();
-if(!text||!myLat) return;
-
-push(ref(db,"hangouts"),{
-owner:myUID,
-lat:myLat,lng:myLng,
-text,
-expires:Date.now()+1000*60*30
-});
-
-hangoutBox.style.display="none";
-};
-
-onValue(ref(db,"hangouts"),snap=>{
-for(let k in hangoutMarkers) map.removeLayer(hangoutMarkers[k]);
-hangoutMarkers={};
-
-snap.forEach(c=>{
-let d=c.val();
-if(Date.now()>d.expires){
-remove(ref(db,"hangouts/"+c.key));
-return;
-}
-
-let mk=L.circleMarker([d.lat,d.lng],{
-radius:12,color:"orange"
-})
-.addTo(map)
-.bindPopup(`🔥 Hangout<br>${d.text}`);
-
-hangoutMarkers[c.key]=mk;
-});
-});
-
-/////////////////////////////////////////////////
-// USER RADAR
-/////////////////////////////////////////////////
+////////////////////////////////////////////////////////
+// USER RADAR (presence-ready)
+////////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
-for(let k in userMarkers) map.removeLayer(userMarkers[k]);
+
+for(let k in userMarkers)
+map.removeLayer(userMarkers[k]);
+
 userMarkers={};
 
 snap.forEach(c=>{
+
 let u=c.val();
 if(!u.lat) return;
+
+let ghost=u.presence?.ghost;
+
+if(ghost && !myFriends[c.key] && c.key!==myUID)
+return;
 
 let status=u.presence?.status||"offline";
 
 let icon=L.divIcon({
-html:`<div style="font-size:12px;text-align:center">
-${u.username}<br>🟢 ${status}</div>`
+
+html:`
+<div style="
+background:white;
+padding:4px;
+border-radius:12px;
+font-size:11px;
+text-align:center;
+">
+${u.username||"user"}<br>
+🟢 ${status}
+</div>`
+
 });
 
-userMarkers[c.key]=
-L.marker([u.lat,u.lng],{icon}).addTo(map);
-});
-});
+let m=L.marker([u.lat,u.lng],{icon})
+.addTo(map);
 
-/////////////////////////////////////////////////
-// TIMELINE
-/////////////////////////////////////////////////
+presencePulse(m);
 
-window.toggleTimeline=()=>{
-timelineBox.style.display=
-timelineBox.style.display==="none"?"block":"none";
-};
+userMarkers[c.key]=m;
 
-onValue(ref(db,"moments"),snap=>{
-let feed=[];
-snap.forEach(user=>{
-let owner=user.key;
-user.forEach(m=>{
-let d=m.val();
-if(canSee(owner,d)) feed.push(d);
-});
 });
 
-feed.sort((a,b)=>b.time-a.time);
-
-timelineBox.innerHTML=
-"<b>Timeline</b><br><br>"+
-feed.map(f=>`📍 ${f.text}<hr>`).join("");
 });
 
-/////////////////////////////////////////////////
-// FRIEND + REQUEST
-/////////////////////////////////////////////////
-
-window.openFriend=()=>friendBox.style.display="block";
-
-window.searchFriend=()=>{
-let k=friendSearch.value.toLowerCase();
-onValue(ref(db,"users"),snap=>{
-friendResult.innerHTML="";
-snap.forEach(c=>{
-let u=c.val();
-if(c.key===myUID||!u.username) return;
-if(u.username.toLowerCase().includes(k)){
-friendResult.innerHTML+=`
-<b>${u.username}</b><br>
-<button onclick="sendFriend('${c.key}')">Add</button><hr>`;
-}
-});
-},{onlyOnce:true});
-};
-
-window.sendFriend=(uid)=>{
-update(ref(db,"friendRequests/"+uid),{[myUID]:true});
-alert("Request sent");
-};
-
-window.openRequests=()=>{
-requestBox.style.display="block";
-loadRequests();
-};
-
-function loadRequests(){
-onValue(ref(db,"friendRequests/"+myUID),snap=>{
-requestList.innerHTML="";
-snap.forEach(c=>{
-let uid=c.key;
-requestList.innerHTML+=`
-<b>${uid}</b><br>
-<button onclick="acceptFriend('${uid}')">Accept</button>
-<button onclick="rejectFriend('${uid}')">Reject</button>
-<hr>`;
-});
-},{onlyOnce:true});
-}
-
-window.acceptFriend=(uid)=>{
-update(ref(db,"friends/"+myUID),{[uid]:true});
-update(ref(db,"friends/"+uid),{[myUID]:true});
-remove(ref(db,"friendRequests/"+myUID+"/"+uid));
-loadFriends();
-loadRequests();
-};
-
-window.rejectFriend=(uid)=>{
-remove(ref(db,"friendRequests/"+myUID+"/"+uid));
-loadRequests();
-};
-
-/////////////////////////////////////////////////
-// AUTH
-/////////////////////////////////////////////////
+////////////////////////////////////////////////////////
+// AUTH FLOW
+////////////////////////////////////////////////////////
 
 onAuthStateChanged(auth,user=>{
+
 if(user){
+
 myUID=user.uid;
+
 ensureUsername();
-startGPS();
 loadFriends();
-loginBox.innerHTML=`Logged in<br><button onclick="signOut(auth)">Logout</button>`;
+startGPS();
+
+loginBox.innerHTML=
+`Logged in<br>
+<button onclick="signOut(auth)">
+Logout
+</button>`;
+
 }else showLogin();
+
 });
