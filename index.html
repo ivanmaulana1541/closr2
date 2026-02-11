@@ -64,5 +64,22 @@ closr — social map
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="script.js"></script>
 
+<!-- PROFILE SETUP -->
+<div id="profileSetup" class="popup">
+<b>Setup Profile</b><br>
+
+<input id="newUsername" placeholder="username"><br>
+
+<select id="avatarSelect">
+<option value="avatar/avatar1.png">Avatar 1</option>
+<option value="avatar/avatar2.png">Avatar 2</option>
+<option value="avatar/avatar3.png">Avatar 3</option>
+<option value="avatar/avatar4.png">Avatar 4</option>
+</select><br>
+
+<button onclick="saveProfile()">Save</button>
+</div>
+
+  
 </body>
 </html>
