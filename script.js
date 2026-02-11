@@ -1,11 +1,11 @@
 ////////////////////////////////////////////////////////
-// CLOSR ULTIMATE — PART 2
-// Presence + Nearby Discovery Engine
+// CLOSR ULTIMATE — PART 3
+// Presence + Discovery + Ping System
 ////////////////////////////////////////////////////////
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+import { getDatabase, ref, update, onValue, push, remove } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
 ////////////////////////////////////////////////////////
 // FIREBASE
@@ -46,10 +46,10 @@ let userMarkers={};
 
 let ghostMode=false;
 
-const DISCOVERY_RADIUS=1; // km
+const DISCOVERY_RADIUS=1;
 
 ////////////////////////////////////////////////////////
-// LOGIN
+// LOGIN UI
 ////////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
@@ -80,7 +80,7 @@ username:"user_"+myUID.slice(0,5)
 }
 
 ////////////////////////////////////////////////////////
-// DISTANCE CALC
+// DISTANCE
 ////////////////////////////////////////////////////////
 
 function distanceKm(a,b,c,d){
@@ -236,7 +236,10 @@ border:${nearby?"2px solid orange":"none"};
 ">
 ${u.username||"user"}<br>
 🟢 ${status}<br>
-${badge}
+${badge}<br>
+<button onclick="pingUser('${c.key}')">
+Ping
+</button>
 </div>`
 
 });
@@ -247,6 +250,38 @@ let m=L.marker([u.lat,u.lng],{icon})
 presencePulse(m);
 
 userMarkers[c.key]=m;
+
+});
+
+});
+
+////////////////////////////////////////////////////////
+// PING SYSTEM
+////////////////////////////////////////////////////////
+
+window.pingUser=(target)=>{
+
+if(!myFriends[target]){
+alert("Ping hanya untuk teman");
+return;
+}
+
+push(ref(db,"pings/"+target),{
+
+from:myUID,
+time:Date.now()
+
+});
+
+};
+
+onValue(ref(db,"pings/"+myUID),snap=>{
+
+snap.forEach(c=>{
+
+alert("🔔 Friend ping!");
+
+remove(ref(db,"pings/"+myUID+"/"+c.key));
 
 });
 
