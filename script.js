@@ -1,30 +1,11 @@
-//////////////// FIREBASE //////////////////
+//////////////////////////////////////////////////////
+// FIREBASE
+//////////////////////////////////////////////////////
 
-import { initializeApp }
-from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-
-import {
-getAuth,
-createUserWithEmailAndPassword,
-signInWithEmailAndPassword,
-signOut,
-onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-
-import {
-getDatabase,
-ref,
-update,
-push,
-onValue
-} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
-
-import {
-getStorage,
-ref as sRef,
-uploadBytes,
-getDownloadURL
-} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+import { getDatabase, ref, update, push, onValue } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
 const firebaseConfig={
 apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
@@ -39,7 +20,9 @@ const auth=getAuth(app);
 const db=getDatabase(app);
 const storage=getStorage(app);
 
-//////////////// MAP //////////////////
+//////////////////////////////////////////////////////
+// MAP
+//////////////////////////////////////////////////////
 
 let map=L.map("map").setView([-6.2,106.8],15);
 
@@ -53,7 +36,9 @@ let momentMarkers={};
 let myUID=null;
 let myLat,myLng;
 
-//////////////// LOGIN //////////////////
+//////////////////////////////////////////////////////
+// LOGIN
+//////////////////////////////////////////////////////
 
 const loginBox=document.getElementById("loginBox");
 
@@ -69,9 +54,36 @@ loginBox.innerHTML=`
 
 reg.onclick=()=>createUserWithEmailAndPassword(auth,email.value,pass.value);
 log.onclick=()=>signInWithEmailAndPassword(auth,email.value,pass.value);
+
 }
 
-//////////////// GPS //////////////////
+//////////////////////////////////////////////////////
+// AUTO USERNAME INIT
+//////////////////////////////////////////////////////
+
+function ensureUsername(){
+
+if(!myUID) return;
+
+onValue(ref(db,"users/"+myUID+"/username"),snap=>{
+
+if(!snap.exists()){
+
+let uname="user_"+myUID.slice(0,5);
+
+update(ref(db,"users/"+myUID),{
+username:uname
+});
+
+}
+
+},{onlyOnce:true});
+
+}
+
+//////////////////////////////////////////////////////
+// GPS
+//////////////////////////////////////////////////////
 
 function startGPS(){
 
@@ -80,8 +92,6 @@ navigator.geolocation.watchPosition(pos=>{
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
-console.log("GPS OK:", myLat, myLng);
-
 update(ref(db,"users/"+myUID),{
 lat:myLat,
 lng:myLng
@@ -89,9 +99,10 @@ lng:myLng
 
 map.setView([myLat,myLng],16);
 
-},
-err=>{
+},err=>{
+
 alert("GPS gagal / belum diizinkan!");
+
 });
 
 }
@@ -100,7 +111,9 @@ window.centerMe=()=>{
 if(myLat) map.setView([myLat,myLng],17);
 };
 
-//////////////// MOMENT + PHOTO //////////////////
+//////////////////////////////////////////////////////
+// MOMENT
+//////////////////////////////////////////////////////
 
 window.openMoment=()=>{
 momentBox.style.display="block";
@@ -112,17 +125,15 @@ let text=momentText.value.trim();
 if(!text) return;
 
 let photoURL="";
-
 let file=momentPhoto?.files?.[0];
 
 if(file){
 
-let fileRef=sRef(storage,
-"moments/"+myUID+"/"+Date.now());
+let fileRef=sRef(storage,"moments/"+myUID+"/"+Date.now());
 
 await uploadBytes(fileRef,file);
-
 photoURL=await getDownloadURL(fileRef);
+
 }
 
 push(ref(db,"moments/"+myUID),{
@@ -131,21 +142,22 @@ photo:photoURL,
 lat:myLat,
 lng:myLng,
 time:Date.now(),
-friendsOnly:friendOnly?.checked || false
+friendsOnly:friendOnly?.checked||false
 });
 
 momentText.value="";
 momentPhoto.value="";
 momentBox.style.display="none";
+
 };
 
-//////////////// RADAR USERS //////////////////
+//////////////////////////////////////////////////////
+// RADAR USERS
+//////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
 
-for(let id in userMarkers)
-map.removeLayer(userMarkers[id]);
-
+for(let id in userMarkers) map.removeLayer(userMarkers[id]);
 userMarkers={};
 
 snap.forEach(c=>{
@@ -153,14 +165,13 @@ snap.forEach(c=>{
 let u=c.val();
 if(!u.lat) return;
 
-let avatar=u.avatar || "avatar/avatar1.png";
+let avatar=u.avatar||"avatar/avatar1.png";
 
 let icon=L.divIcon({
 className:"",
 html:`
 <div style="text-align:center">
-<img src="${avatar}"
-style="
+<img src="${avatar}" style="
 width:50px;
 height:50px;
 border-radius:50%;
@@ -171,32 +182,26 @@ border:3px solid #4a6cff;
 `
 });
 
-let m=L.marker([u.lat,u.lng],{icon})
-.addTo(map);
+let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
 
 m.on("click",()=>{
-
 if(c.key!==myUID)
-showInteractionPopup(
-m.getLatLng(),
-c.key,
-u.username||"user"
-);
-
+showInteractionPopup(m.getLatLng(),c.key,u.username||"user");
 });
 
 userMarkers[c.key]=m;
 
 });
+
 });
 
-//////////////// MOMENT MARKERS //////////////////
+//////////////////////////////////////////////////////
+// MOMENT MARKERS
+//////////////////////////////////////////////////////
 
 onValue(ref(db,"moments"),snap=>{
 
-for(let k in momentMarkers)
-map.removeLayer(momentMarkers[k]);
-
+for(let k in momentMarkers) map.removeLayer(momentMarkers[k]);
 momentMarkers={};
 
 snap.forEach(user=>{
@@ -215,10 +220,14 @@ ${d.photo?`<img class="preview" src="${d.photo}">`:""}
 momentMarkers[m.key]=mk;
 
 });
-});
+
 });
 
-//////////////// PROFILE VIEWER //////////////////
+});
+
+//////////////////////////////////////////////////////
+// PROFILE
+//////////////////////////////////////////////////////
 
 window.openProfile=(uid)=>{
 
@@ -244,15 +253,18 @@ profileBox.innerHTML=html;
 profileBox.style.display="block";
 
 },{onlyOnce:true});
+
 };
 
-//////////////// TIMELINE //////////////////
+//////////////////////////////////////////////////////
+// TIMELINE
+//////////////////////////////////////////////////////
 
 window.toggleTimeline=()=>{
 
 timelineBox.style.display=
-timelineBox.style.display==="none"
-?"block":"none";
+timelineBox.style.display==="none"?"block":"none";
+
 };
 
 onValue(ref(db,"moments"),snap=>{
@@ -278,9 +290,12 @@ ${f.photo?`<img class="preview" src="${f.photo}">`:""}
 });
 
 timelineBox.innerHTML=html;
+
 });
 
-//////////////// AUTH //////////////////
+//////////////////////////////////////////////////////
+// AUTH
+//////////////////////////////////////////////////////
 
 onAuthStateChanged(auth,user=>{
 
@@ -288,30 +303,29 @@ if(user){
 
 myUID=user.uid;
 
+ensureUsername();
+startGPS();
+
 loginBox.innerHTML=`
 Logged in<br>
-<button id="logout">Logout</button>
+<button onclick="logout()">Logout</button>
 `;
-
-document.getElementById("logout").onclick=
-()=>signOut(auth);
-
-startGPS();
 
 }else showLogin();
 
 });
 
+window.logout=()=>signOut(auth);
+
 //////////////////////////////////////////////////////
-// FLOATING INTERACTION POPUP
+// INTERACTION POPUP
 //////////////////////////////////////////////////////
 
 let interactionBox=null;
 
 window.showInteractionPopup=(latlng,uid,name)=>{
 
-if(interactionBox)
-map.closePopup(interactionBox);
+if(interactionBox) map.closePopup(interactionBox);
 
 interactionBox=L.popup({
 closeButton:false,
@@ -329,6 +343,76 @@ closeOnClick:false
 };
 
 window.closeInteraction=()=>{
-if(interactionBox)
-map.closePopup(interactionBox);
+if(interactionBox) map.closePopup(interactionBox);
+};
+
+//////////////////////////////////////////////////////
+// FRIEND SYSTEM — STEP 1
+//////////////////////////////////////////////////////
+
+const friendBox=document.getElementById("friendBox");
+
+window.openFriend=()=>{
+friendBox.style.display="block";
+document.getElementById("friendResult").innerHTML="";
+};
+
+window.searchFriend=()=>{
+
+let keyword=document.getElementById("friendSearch")
+.value.trim().toLowerCase();
+
+if(!keyword) return;
+
+let resultBox=document.getElementById("friendResult");
+resultBox.innerHTML="Searching...";
+
+onValue(ref(db,"users"),snap=>{
+
+resultBox.innerHTML="";
+let found=false;
+
+snap.forEach(c=>{
+
+let uid=c.key;
+let u=c.val();
+
+if(!u.username) return;
+if(uid===myUID) return;
+
+if(u.username.toLowerCase().includes(keyword)){
+
+found=true;
+
+let div=document.createElement("div");
+
+div.innerHTML=`
+<b>${u.username}</b><br>
+<button onclick="sendFriendRequest('${uid}')">
+Add Friend
+</button>
+<hr>
+`;
+
+resultBox.appendChild(div);
+
+}
+
+});
+
+if(!found) resultBox.innerHTML="No user found.";
+
+},{onlyOnce:true});
+
+};
+
+window.sendFriendRequest=(targetUID)=>{
+
+update(
+ref(db,"friendRequests/"+targetUID),
+{[myUID]:true}
+);
+
+alert("Friend request sent!");
+
 };
