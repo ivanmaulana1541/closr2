@@ -57,13 +57,44 @@ const DISCOVERY_RADIUS=1;
 const loginBox=document.getElementById("loginBox");
 
 function showLogin(){
+
 loginBox.innerHTML=`
 <h3>Login</h3>
+
 <input id="email"><br>
 <input id="pass" type="password"><br>
-<button onclick="createUserWithEmailAndPassword(auth,email.value,pass.value)">Register</button>
-<button onclick="signInWithEmailAndPassword(auth,email.value,pass.value)">Login</button>`;
+
+<button onclick="registerUser()">Register</button>
+<button onclick="loginUser()">Login</button>
+`;
+
 }
+
+////////////////////////////////////////////////////////
+// GLOBAL AUTH WRAPPERS
+////////////////////////////////////////////////////////
+
+window.registerUser=()=>{
+
+let email=document.getElementById("email").value;
+let pass=document.getElementById("pass").value;
+
+createUserWithEmailAndPassword(auth,email,pass)
+.then(()=>alert("Registered!"))
+.catch(e=>alert(e.message));
+
+};
+
+window.loginUser=()=>{
+
+let email=document.getElementById("email").value;
+let pass=document.getElementById("pass").value;
+
+signInWithEmailAndPassword(auth,email,pass)
+.catch(e=>alert(e.message));
+
+};
+
 
 ////////////////////////////////////////////////////////
 // USERNAME
