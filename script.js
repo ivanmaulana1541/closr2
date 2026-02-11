@@ -110,6 +110,36 @@ username:"user_"+myUID.slice(0,5)
 }
 
 ////////////////////////////////////////////////////////
+// PROFILE SETUP
+////////////////////////////////////////////////////////
+
+function openProfileSetup(){
+
+profileSetup.style.display="block";
+
+}
+
+window.saveProfile=()=>{
+
+let uname=document.getElementById("newUsername").value.trim();
+let avatar=document.getElementById("avatarSelect").value;
+
+if(!uname){
+alert("Username required");
+return;
+}
+
+update(ref(db,"users/"+myUID),{
+username:uname,
+avatar:avatar
+});
+
+profileSetup.style.display="none";
+
+};
+
+
+////////////////////////////////////////////////////////
 // GHOST TOGGLE
 ////////////////////////////////////////////////////////
 
