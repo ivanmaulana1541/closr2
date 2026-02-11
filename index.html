@@ -1,17 +1,13 @@
 <!DOCTYPE html>
-
 <html>
-<head>
 
+<head>
 <meta charset="UTF-8">
 <title>closr — social map</title>
 
 <link rel="stylesheet" href="style.css">
-
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 </head>
 
@@ -42,40 +38,54 @@ padding:6px 12px;
 font-weight:700;
 cursor:pointer;
 ">
-Logout </button>
+Logout
+</button>
 
 </header>
 
 <div id="loginBox" class="card"></div>
 
-<button onclick="openMoment()">📸 Share Moment</button> <button onclick="toggleTimeline()">📰 Timeline</button> <button onclick="centerMe()">🎯 Center</button>
+<button onclick="openMoment()">📸 Share Moment</button>
+<button onclick="toggleTimeline()">📰 Timeline</button>
+<button onclick="centerMe()">🎯 Center</button>
+<button onclick="openFriend()">👥 Add Friend</button>
 
 <div id="map"></div>
 
 <!-- MOMENT -->
-
 <div id="momentBox" class="popup">
 <b>Share moment</b><br>
 <textarea id="momentText"></textarea><br>
 <input type="file" id="momentPhoto"><br>
+
 <label>
 <input type="checkbox" id="friendOnly">
 Friends only
 </label><br>
+
 <button onclick="sendMoment()">Post</button>
 <button onclick="momentBox.style.display='none'">Close</button>
 </div>
 
 <!-- PROFILE -->
-
 <div id="profileBox" class="popup"></div>
 
 <!-- TIMELINE -->
-
 <div id="timelineBox" class="timeline"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- FRIEND POPUP -->
+<div id="friendBox" class="popup">
+<b>Add Friend</b><br>
 
+<input id="friendSearch" placeholder="username"><br>
+<button onclick="searchFriend()">Search</button>
+
+<div id="friendResult"></div>
+
+<button onclick="friendBox.style.display='none'">Close</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="script.js"></script>
 
 </body>
