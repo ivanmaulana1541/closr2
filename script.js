@@ -13,7 +13,9 @@ let map=L.map("map").setView([-6.2,106.8],15);
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png").addTo(map);
 
 let myUID,myLat,myLng;
+let lastLat,lastLng;
 let myFriends={};
+let userMarkers={};
 let momentMarkers={};
 
 const loginBox=document.getElementById("loginBox");
@@ -34,13 +36,51 @@ update(ref(db,"users/"+myUID),{username:"user_"+myUID.slice(0,5)});
 },{onlyOnce:true});
 }
 
+/////////////////////////////////////////////////
+// PRESENCE DETECTOR
+/////////////////////////////////////////////////
+
+function detectStatus(lat,lng){
+
+if(!lastLat){
+lastLat=lat;lastLng=lng;
+return "online";
+}
+
+let move=Math.abs(lat-lastLat)+Math.abs(lng-lastLng);
+
+lastLat=lat;lastLng=lng;
+
+if(move>0.0002) return "moving";
+return "idle";
+}
+
+/////////////////////////////////////////////////
+// GPS + PRESENCE
+/////////////////////////////////////////////////
+
 function startGPS(){
+
 navigator.geolocation.watchPosition(pos=>{
+
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
-update(ref(db,"users/"+myUID),{lat:myLat,lng:myLng});
-map.setView([myLat,myLng],16);
+
+let status=detectStatus(myLat,myLng);
+
+update(ref(db,"users/"+myUID),{
+lat:myLat,
+lng:myLng,
+presence:{
+status,
+lastActive:Date.now()
+}
 });
+
+map.setView([myLat,myLng],16);
+
+});
+
 }
 
 window.centerMe=()=>{if(myLat) map.setView([myLat,myLng],17);};
@@ -62,11 +102,13 @@ myFriends=snap.val()||{};
 window.openMoment=()=>momentBox.style.display="block";
 
 window.sendMoment=async()=>{
+
 let text=momentText.value.trim();
 if(!text) return;
 
 let photo="";
 let file=momentPhoto.files[0];
+
 if(file){
 let r=sRef(storage,"moments/"+myUID+"/"+Date.now());
 await uploadBytes(r,file);
@@ -83,7 +125,7 @@ momentBox.style.display="none";
 };
 
 /////////////////////////////////////////////////
-// VISIBILITY CHECK
+// VISIBILITY
 /////////////////////////////////////////////////
 
 function canSee(owner,data){
@@ -92,7 +134,40 @@ return owner===myUID || myFriends[owner];
 }
 
 /////////////////////////////////////////////////
-// MAP MOMENTS
+// USER RADAR WITH PRESENCE
+/////////////////////////////////////////////////
+
+onValue(ref(db,"users"),snap=>{
+
+for(let k in userMarkers) map.removeLayer(userMarkers[k]);
+userMarkers={};
+
+snap.forEach(c=>{
+
+let u=c.val();
+if(!u.lat) return;
+
+let status=u.presence?.status||"offline";
+
+let icon=L.divIcon({
+html:`
+<div style="text-align:center">
+<div style="font-size:12px">
+${u.username||"user"}<br>
+🟢 ${status}
+</div>
+</div>`
+});
+
+let m=L.marker([u.lat,u.lng],{icon}).addTo(map);
+userMarkers[c.key]=m;
+
+});
+
+});
+
+/////////////////////////////////////////////////
+// MOMENTS MAP
 /////////////////////////////////////////////////
 
 onValue(ref(db,"moments"),snap=>{
@@ -110,6 +185,7 @@ if(!canSee(owner,d)) return;
 let mk=L.marker([d.lat,d.lng])
 .addTo(map)
 .bindPopup(`📍 ${d.text}`);
+
 momentMarkers[m.key]=mk;
 });
 
@@ -140,18 +216,13 @@ if(canSee(owner,d)) feed.push(d);
 
 feed.sort((a,b)=>b.time-a.time);
 
-let html="<b>Timeline</b><br><br>";
-
-feed.forEach(f=>{
-html+=`📍 ${f.text}<hr>`;
-});
-
-timelineBox.innerHTML=html;
+timelineBox.innerHTML="<b>Timeline</b><br><br>"+
+feed.map(f=>`📍 ${f.text}<hr>`).join("");
 
 });
 
 /////////////////////////////////////////////////
-// FRIEND SEARCH + REQUEST
+// FRIEND + REQUEST SYSTEM
 /////////////////////////////////////////////////
 
 window.openFriend=()=>friendBox.style.display="block";
@@ -176,10 +247,6 @@ window.sendFriend=(uid)=>{
 update(ref(db,"friendRequests/"+uid),{[myUID]:true});
 alert("Request sent");
 };
-
-/////////////////////////////////////////////////
-// REQUEST SYSTEM
-/////////////////////////////////////////////////
 
 window.openRequests=()=>{
 requestBox.style.display="block";
