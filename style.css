@@ -1,30 +1,7 @@
-body{
-margin:0;
-font-family:"Nunito",sans-serif;
-background:#FDF6F6;
-color:#2C2C2C;
-}
+body{margin:0;font-family:"Nunito";background:#FDF6F6;}
+#map{height:60vh;}
 
-header{
-background:#E53935;
-display:flex;
-justify-content:center;
-align-items:center;
-padding:14px;
-box-shadow:0 3px 8px rgba(0,0,0,.15);
-}
-
-#map{
-height:60vh;
-}
-
-.card{
-background:white;
-padding:12px;
-margin:12px;
-border-radius:12px;
-box-shadow:0 2px 6px rgba(0,0,0,.05);
-}
+.card{background:white;padding:12px;margin:12px;border-radius:12px;}
 
 button{
 padding:10px 14px;
@@ -34,56 +11,27 @@ color:white;
 border:none;
 border-radius:18px;
 cursor:pointer;
-font-weight:600;
-transition:.2s;
-}
-
-button:hover{
-background:#d32f2f;
-transform:scale(1.05);
 }
 
 input,textarea{
-padding:10px;
-margin:6px;
-width:95%;
-border-radius:10px;
-border:1px solid #ddd;
-font-family:"Nunito",sans-serif;
+padding:10px;margin:6px;width:95%;
+border-radius:10px;border:1px solid #ddd;
 }
 
 .popup{
-position:absolute;
-top:90px;
-left:50%;
+position:absolute;top:90px;left:50%;
 transform:translateX(-50%);
-background:white;
-padding:14px;
+background:white;padding:14px;
 border-radius:16px;
-box-shadow:0 6px 16px rgba(0,0,0,.2);
-display:none;
-z-index:999;
+display:none;z-index:999;
 max-width:340px;
 }
 
 .timeline{
-position:absolute;
-bottom:0;
-left:0;
-right:0;
+position:absolute;bottom:0;left:0;right:0;
 max-height:42%;
-background:white;
-overflow:auto;
-padding:12px;
-border-top-left-radius:20px;
-border-top-right-radius:20px;
-box-shadow:0 -4px 12px rgba(0,0,0,.08);
-display:none;
-z-index:998;
+background:white;overflow:auto;
+padding:12px;display:none;
 }
 
-img.preview{
-width:100%;
-border-radius:12px;
-margin-top:6px;
-}
+img.preview{width:100%;border-radius:12px;}
