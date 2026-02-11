@@ -76,14 +76,18 @@ loginBox.innerHTML=`
 
 window.registerUser=()=>{
 
-let email=document.getElementById("email").value;
-let pass=document.getElementById("pass").value;
+let email=email.value;
+let pass=pass.value;
 
 createUserWithEmailAndPassword(auth,email,pass)
-.then(()=>alert("Registered!"))
+.then(()=>{
+alert("Registered!");
+setTimeout(openProfileSetup,500);
+})
 .catch(e=>alert(e.message));
 
 };
+
 
 window.loginUser=()=>{
 
