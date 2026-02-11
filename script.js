@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////
-// CLOSR ULTIMATE — PART 4
-// Presence + Discovery + Ping + Hangout Engine
+// CLOSR ULTIMATE — PART 5
+// Full engine + Ghost privacy
 ////////////////////////////////////////////////////////
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -34,7 +34,7 @@ L.tileLayer(
 ).addTo(map);
 
 ////////////////////////////////////////////////////////
-// GLOBAL STATE
+// GLOBAL ENGINE
 ////////////////////////////////////////////////////////
 
 let myUID=null;
@@ -78,6 +78,26 @@ username:"user_"+myUID.slice(0,5)
 }
 
 ////////////////////////////////////////////////////////
+// GHOST TOGGLE
+////////////////////////////////////////////////////////
+
+window.toggleGhost=()=>{
+
+ghostMode=!ghostMode;
+
+alert(
+ghostMode?
+"👻 Ghost active (friends only visible)":
+"👁 Visible to all"
+);
+
+update(ref(db,"users/"+myUID+"/presence"),{
+ghost:ghostMode
+});
+
+};
+
+////////////////////////////////////////////////////////
 // DISTANCE
 ////////////////////////////////////////////////////////
 
@@ -109,6 +129,7 @@ return move>0.0002?"moving":"idle";
 
 function startGPS(){
 navigator.geolocation.watchPosition(pos=>{
+
 myLat=pos.coords.latitude;
 myLng=pos.coords.longitude;
 
@@ -122,6 +143,7 @@ ghost:ghostMode
 });
 
 map.setView([myLat,myLng],16);
+
 });
 }
 
@@ -153,7 +175,7 @@ marker._icon.style.transform=`scale(${s})`;
 }
 
 ////////////////////////////////////////////////////////
-// USER RADAR
+// USER RADAR + GHOST FILTER
 ////////////////////////////////////////////////////////
 
 onValue(ref(db,"users"),snap=>{
@@ -222,8 +244,7 @@ alert("Ping hanya teman");
 return;
 }
 push(ref(db,"pings/"+uid),{
-from:myUID,
-time:Date.now()
+from:myUID,time:Date.now()
 });
 };
 
@@ -239,19 +260,15 @@ remove(ref(db,"pings/"+myUID+"/"+c.key));
 ////////////////////////////////////////////////////////
 
 window.createHangout=()=>{
-
 if(!myLat) return;
-
 push(ref(db,"hangouts"),{
 owner:myUID,
 lat:myLat,lng:myLng,
-time:Date.now(),
 expires:Date.now()+1000*60*30
 });
-
 };
 
-window.joinHangout=(id)=>{
+window.joinHangout=id=>{
 update(ref(db,"hangouts/"+id+"/members/"+myUID),true);
 alert("Joined hangout!");
 };
@@ -272,9 +289,9 @@ remove(ref(db,"hangouts/"+c.key));
 return;
 }
 
-let mk=L.circleMarker([h.lat,h.lng],{
-radius:14,
-color:"orange"
+hangoutMarkers[c.key]=
+L.circleMarker([h.lat,h.lng],{
+radius:14,color:"orange"
 })
 .addTo(map)
 .bindPopup(`
@@ -283,8 +300,6 @@ color:"orange"
 Join
 </button>
 `);
-
-hangoutMarkers[c.key]=mk;
 
 });
 
