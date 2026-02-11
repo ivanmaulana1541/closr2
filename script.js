@@ -12,12 +12,13 @@ import { getDatabase, ref, update, onValue, push, remove } from "https://www.gst
 ////////////////////////////////////////////////////////
 
 const firebaseConfig={
-apiKey:"AIza...",
-authDomain:"...",
-databaseURL:"...",
-projectId:"...",
-storageBucket:"..."
+apiKey:"AIzaSyD9SIzJ58zYVlvwGYewKXwCmrq6SGgDLUM",
+authDomain:"closr-c35df.firebaseapp.com",
+databaseURL:"https://closr-c35df-default-rtdb.firebaseio.com",
+projectId:"closr-c35df",
+storageBucket:"closr-c35df.firebasestorage.app"
 };
+
 
 const app=initializeApp(firebaseConfig);
 const auth=getAuth(app);
